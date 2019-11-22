@@ -1,0 +1,9 @@
+api = "0.2"
+
+[buildpack]
+id = "salesforce/sf-fx-middleware"
+name = "Salesforce Function Structured Middleware"
+version = "0.0.1"
+
+[[stacks]]
+id = "heroku-18"

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+BP_DIR=$(cd $(dirname $0)/..; pwd)
+echo "BP_DIR: " $BP_DIR
+LAYERS_DIR="$1"
+echo "LAYERS_DIR: " $LAYERS_DIR
+MW_LAYER="$LAYERS_DIR/middleware"
+echo "MW_LAYER: " $MW_LAYER
+
+mkdir -p "$MW_LAYER/env"
+
+echo $(ls -al "$BP_DIR")
+echo $(ls -al "$BP_DIR/middleware")
+
+cp -a "$BP_DIR/middleware/." $MW_LAYER
+
+#cp "$BP_DIR/middleware/.npmrc" $MW_LAYER
+#cp "$BP_DIR/middleware/index.ts" $MW_LAYER
+#cp "$BP_DIR/middleware/tsconfig.json" $MW_LAYER
+#cp "$BP_DIR/middleware/tslint.json" $MW_LAYER
+#cp "$BP_DIR/middleware/package.json" $MW_LAYER
+#cp "$BP_DIR/middleware/package-lock.json" $MW_LAYER
+
+cd $MW_LAYER && npm install && npm run build
+
+echo -n "$MW_LAYER/dist/index.js" > "$MW_LAYER/env/MIDDLEWARE_FUNCTION_URI"
+echo "launch = true" > "$MW_LAYER.toml"

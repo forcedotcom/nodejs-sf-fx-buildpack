@@ -1,0 +1,40 @@
+{
+  "name": "sf-fx-middleware",
+  "version": "0.0.1",
+  "description": "Middleware for salesforce functions",
+  "license": "UNLICENSED",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=8.0.0"
+  },
+  "scripts": {
+    "build": "node_modules/typescript/bin/tsc",
+    "lint": "tslint -c tslint.json './*.ts' 'src/**/*.ts'",
+    "start": "",
+    "test": "",
+    "watch-node": "nodemon dist/index.js",
+    "watch": "tsc -w"
+  },
+  "pre-commit": [
+    "build",
+    "lint",
+    "test"
+  ],
+  "repository": {
+    "type": "git"
+  },
+  "author": "TODO",
+  "dependencies": {
+    "@heroku/salesforce-sdk": "0.0.1-develop.6",
+    "tslib": "1.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^10.12.18",
+    "sinon": "^7.2.3",
+    "ts-node": "7.0.0",
+    "tslint": "^5.12.1",
+    "tslint-config-prettier": "^1.17.0",
+    "tslint-plugin-prettier": "^2.0.1",
+    "typescript": "3.2.2"
+  }
+}

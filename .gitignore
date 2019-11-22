@@ -1,0 +1,20 @@
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# node Functions
+dist/
+node_modules/
+.nyc_output/
+
+#Eclipse
+.classpath
+.project
+.settings
+

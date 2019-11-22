@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+if [ -f package.json ]; then
+  echo "detected sf-fx-middleware buildpack"
+  exit 0
+else
+  exit 1
+fi
