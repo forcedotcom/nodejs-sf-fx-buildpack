@@ -10,19 +10,13 @@ echo "MW_LAYER: " $MW_LAYER
 
 mkdir -p "$MW_LAYER/env"
 
-echo $(ls -al "$BP_DIR")
-echo $(ls -al "$BP_DIR/middleware")
-
+#BP_DIR has all the files that's untared from the buildpack targz 
+#copy all the source files to MW_LAYER folder
 cp -a "$BP_DIR/middleware/." $MW_LAYER
 
-#cp "$BP_DIR/middleware/.npmrc" $MW_LAYER
-#cp "$BP_DIR/middleware/index.ts" $MW_LAYER
-#cp "$BP_DIR/middleware/tsconfig.json" $MW_LAYER
-#cp "$BP_DIR/middleware/tslint.json" $MW_LAYER
-#cp "$BP_DIR/middleware/package.json" $MW_LAYER
-#cp "$BP_DIR/middleware/package-lock.json" $MW_LAYER
-
+#run npm install and build(to generate js file)
 cd $MW_LAYER && npm install && npm run build
 
+#set env variable MIDDLEWARE_FUNCTION_URI to the index.js file
 echo -n "$MW_LAYER/dist/index.js" > "$MW_LAYER/env/MIDDLEWARE_FUNCTION_URI"
 echo "launch = true" > "$MW_LAYER.toml"

@@ -8,10 +8,10 @@
     "node": ">=8.0.0"
   },
   "scripts": {
-    "build": "node_modules/typescript/bin/tsc",
+    "build": "node_modules/typescript/bin/tsc -p .",
     "lint": "tslint -c tslint.json './*.ts' 'src/**/*.ts'",
-    "start": "",
-    "test": "",
+    "start": "node dist/index",
+    "test": "nyc --extension .ts mocha --forbid-only -r ts-node/register 'test/unit/**/*.ts'",
     "watch-node": "nodemon dist/index.js",
     "watch": "tsc -w"
   },
@@ -25,11 +25,22 @@
   },
   "author": "TODO",
   "dependencies": {
-    "@heroku/salesforce-sdk": "0.0.1-develop.6",
+    "@heroku/salesforce-sdk": "0.0.1-develop.7.1",
     "tslib": "1.9.3"
   },
   "devDependencies": {
+    "@types/chai": "^4.1.7",
+    "@types/chai-as-promised": "^7.1.0",
+    "@types/mocha": "^5.2.5",
     "@types/node": "^10.12.18",
+    "@types/sinon": "^7.0.4",
+    "chai": "^4.2.0",
+    "chai-as-promised": "^7.1.1",
+    "mocha": "^5.2.0",
+    "nyc": "^14.1.1",
+    "pre-commit": "^1.2.2",
+    "request": "^2.88.0",
+    "request-promise-native": "^1.0.7",
     "sinon": "^7.2.3",
     "ts-node": "7.0.0",
     "tslint": "^5.12.1",

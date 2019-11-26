@@ -1,13 +1,15 @@
-import * as sdk from '@heroku/salesforce-sdk';
 
-// TODO: Migrate to an Evergreen middleware layer.  Convenience method to not dupe
-// code across existing functions.
-// Once SF middleware is in place, the event param will be the function's
-// payload and context will be a fully setup sdk.Context instance.
-// Until then, event is a CloudEvent object that we'll parse either to
-// setup sdk.Context.
+import { ConnectionConfig, 
+        Constants, 
+        ForceApi, 
+        Logger, 
+        UnitOfWork, 
+        FunctionInvocationRequest, 
+        UserContext as SdkUseContext,
+        Context as SdkContext } from '@heroku/salesforce-sdk';
 
 /**
+ * sample request body from core
  * 
 {
   "type": "com.salesforce.function.invoke",
@@ -48,29 +50,34 @@ import * as sdk from '@heroku/salesforce-sdk';
   },
   "specVersion": "0.2"
 }
- * 
- * @param event 
+ */
+
+/**
+ * @param request -- contains [headers, payload] 
  * @param state -- not used as an input here
  * @param resultArgs -- not used as an input here
  */
-
-export default function applySfFxMiddleware(event: any, state: any, resultArgs: any): any {
+export default function applySfFxMiddleware(request: any, state: any, resultArgs: any): any {
     debugger;
-    console.log("I am in the middle ware");
-    if (!event) {
-        throw new Error('Data not provided');
+    console.log("Starting salesforce functions middleware");
+
+    //validate the input request
+    if (!request) {
+        throw new Error('Request Data not provided');
     }
 
-    const data = event.payload.data;
+    const data = request.payload.data;
     if (!data) {
         throw new Error('Data not provided');
     }
 
     // Again, this is temp: context param will be fully setup sdk.Context instance.
-    const context = data.context;
-    if (!context) {
-        throw new Error('Context not provided');
+    const reqContext = data.context;
+    if (!reqContext) {
+        throw new Error('Context not provided in data');
     }
+
+    const userFxPayload = data.payload;
 
     // Not all functions will require an accessToken used for org access.
     // The accessToken will not be passed directly to functions, but instead
@@ -84,15 +91,78 @@ export default function applySfFxMiddleware(event: any, state: any, resultArgs: 
         delete data.sfContext;
     }
 
-    // Transformed CloudEvent into function consumable payload (event) and context.
-    // return {
-    //     context: sdk.Context.create(context, sdk.Logger.create(true), accessToken, functionInvocationId),
-    //     event: data.payload };
-
-    let sdkContext = sdk.Context.create(context, 
-                                        sdk.Logger.create(true), 
+    //construct the sdk context, send it to the user function
+    const sdkContext = createSdkContext(reqContext,                                         
                                         accessToken, 
                                         functionInvocationId);
-    return [event.payload, sdkContext];
+    return [userFxPayload, sdkContext];
 }
 
+/**
+ * construct sdk Context using the following input params
+ * 
+ * @param reqContext - reqContext from the request, contains salesforce stuff (user reqContext, etc)
+ * @param accessToken 
+ * @param functionInvocationId 
+ */
+function createSdkContext(reqContext: any, accessToken?: string, functionInvocationId?: string): SdkContext {
+    if (!reqContext) {
+        throw new Error('Context not provided.');
+    }
+
+    if (typeof reqContext === 'string') {
+        reqContext = JSON.parse(reqContext);
+    }
+
+    const userCtx = createSdkUserContext(reqContext);
+    const apiVersion = reqContext.apiVersion || process.env.FX_API_VERSION || Constants.CURRENT_API_VERSION;
+
+    // If accessToken was provided, setup APIs.
+    let forceApi: ForceApi;
+    let unitOfWork: UnitOfWork;
+    let fxInvocation: FunctionInvocationRequest;
+    const logger: Logger = Logger.create(true);
+    if (accessToken) {
+        const config: ConnectionConfig = new ConnectionConfig(
+            accessToken,
+            apiVersion,
+            userCtx.salesforceBaseUrl
+        );
+        unitOfWork = new UnitOfWork(config, logger);
+        forceApi = new ForceApi(config, logger);
+
+        if (functionInvocationId) {
+            fxInvocation = new FunctionInvocationRequest(functionInvocationId, logger, forceApi);
+        }
+    }
+
+    return new SdkContext(apiVersion,
+                          userCtx, 
+                          logger, 
+                          reqContext.payloadVersion,
+                          forceApi, 
+                          unitOfWork,
+                          fxInvocation);
+}
+
+/**
+ * Construct sdk UserContext object from the request context
+ * 
+ * @param reqContext 
+ */
+function createSdkUserContext(reqContext: any): SdkUseContext {
+  const userContext = reqContext.userContext;
+  if (!userContext) {
+      const message = `UserContext not provided: ${JSON.stringify(reqContext)}`;
+      throw new Error(message);
+  }
+
+  return new SdkUseContext(
+      userContext.orgDomainUrl,
+      userContext.orgId,
+      userContext.salesforceBaseUrl,
+      userContext.username,
+      userContext.userId,
+      userContext.onBehalfOfUserId
+  );
+}

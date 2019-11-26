@@ -17,9 +17,9 @@
         "allowSyntheticDefaultImports": true,
         "alwaysStrict": true,
         "pretty": true,
-        "typeRoots": [ "./src/@types", "./node_modules/@types"]
+        "typeRoots": ["./node_modules/@types"]
     },
     "include": [
-        "./*.ts", "./src/**/*", "middleware/index.ts"
+        "./*.ts"
     ]
 }
