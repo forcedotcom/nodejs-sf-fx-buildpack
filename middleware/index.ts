@@ -56,11 +56,11 @@ import { ConnectionConfig,
  * @param request -- contains [headers, payload] 
  * @param state -- not used as an input here
  * @param resultArgs -- not used as an input here
+ * @return Array -- array of arguments that will be passed to the next middleware function chain as the resultArgs(the 3rd argument)
+ *                  OR
+ *                  as the input argument to user functions if this is the last middleware function
  */
-export default function applySfFxMiddleware(request: any, state: any, resultArgs: any): any {
-    debugger;
-    console.log("Starting salesforce functions middleware");
-
+export default function applySfFxMiddleware(request: any, state: any, resultArgs: any): Array<any> {
     //validate the input request
     if (!request) {
         throw new Error('Request Data not provided');
@@ -71,9 +71,7 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
         throw new Error('Data not provided');
     }
 
-    // Again, this is temp: context param will be fully setup sdk.Context instance.
-    const reqContext = data.context;
-    if (!reqContext) {
+    if (!data.context) {
         throw new Error('Context not provided in data');
     }
 
@@ -92,7 +90,7 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
     }
 
     //construct the sdk context, send it to the user function
-    const sdkContext = createSdkContext(reqContext,                                         
+    const sdkContext = createSdkContext(data.context,
                                         accessToken, 
                                         functionInvocationId);
     return [userFxPayload, sdkContext];
