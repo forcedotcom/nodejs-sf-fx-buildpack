@@ -14,11 +14,10 @@ jobs:
       # documented at https://circleci.com/docs/2.0/circleci-images/
       # - image: circleci/mongo:3.4.4
 
-    working_directory: ~/repo/middleware
+    working_directory: ~/repo
 
     steps:
-      - checkout:
-        path: ~/repo
+      - checkout
 
       # Download and cache dependencies
       - restore_cache:
@@ -27,15 +26,15 @@ jobs:
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
 
-      - run: npm install
+      - run: cd middleware && npm install
 
       - save_cache:
           paths:
-            - node_modules
+            - middleware/node_modules
           key: v1-dependencies-{{ checksum "package.json" }}
 
       # run build (again, to be sure)
-      - run: npm run build
+      - run: cd middleware && npm run build
 
       # run tests!
-      - run: npm run test
+      - run: cd middleware && npm run test
