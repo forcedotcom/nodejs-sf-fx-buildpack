@@ -10,18 +10,19 @@ jobs:
       # https://circleci.com/docs/2.0/circleci-images/#nodejs
       - image: circleci/node:lts
 
-    working_directory: ~/repo
+    working_directory: ~/repo/middleware
 
     steps:
-      - checkout
+      - checkout:
+          path: ~/repo
 
     # Access to @heroku/salesforce-sdk
       - run:
           name: Middleware Build and Test Prep
-          command: cd middleware && echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
 
-      - run: cd middleware && npm install
+      - run: npm install
 
-      - run: cd middleware && npm run build
+      - run: npm run build
 
-      - run: cd middleware && npm run test
+      - run: npm run test
