@@ -7,14 +7,10 @@ jobs:
 
   # build job runs for all branches and all tags.
   build:
-    filters: # required since `release` has tag filters AND requires `build`
-      tags:
-        only: /.*/
     docker:
       # Specify the version you desire here
       # https://circleci.com/docs/2.0/circleci-images/#nodejs
       - image: circleci/node:lts
-      - image: cibuilds/github:0.10
 
     # set working directory to sub folder
     working_directory: ~/repo/middleware
@@ -30,31 +26,28 @@ jobs:
       - run: npm run build
       - run: npm run test
       - run: echo "jq is installed on " $(which jq)
-      - run: echo "ghr is installed on " $(which ghr)
+      - run: cd .. && make package && ls -alh sf-fx-middleware-buildpack-*.tgz
+      - persist_to_workspace:
+          root: ~/repo
+          paths:
+            - sf-fx-middleware-buildpack-*.tgz
+            - buildpack.toml
 
   #release job runs for no branches and only for tags starting with ‘v’.        
   release: 
     requires:
       - build
-    filters:
-      tags:
-        only: /^v.*/
-      branches:
-        ignore: /.*/
-    docker:
-      # Specify the version you desire here
-      # https://circleci.com/docs/2.0/circleci-images/#nodejs
-      - image: circleci/node:lts
 
+    docker:
+      - image: cibuilds/github:0.13.0
           # set working directory to sub folder
-    working_directory: ~/repo/middleware
+    working_directory: ~/repo
 
     steps:
-      - checkout:
-          path: ~/repo
-
-      - run:  # Access to @heroku/salesforce-sdk
-          name: Create binary tgz 
-          command: make package
+      - run: echo "ghr is installed on " $(which ghr)
       - run: echo "run github command to upload the binary on " ${CIRCLE_BRANCH}:${CIRCLE_TAG}
+      - attach_workspace:
+          at: ~/repo
+      - run: ls -alh
+
   
