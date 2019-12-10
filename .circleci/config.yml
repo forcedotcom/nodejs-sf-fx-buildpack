@@ -6,53 +6,53 @@ version: 2
 jobs:
 
   # build job runs for all branches and all tags.
-  - build:
-      filters: # required since `release` has tag filters AND requires `build`
-        tags:
-          only: /.*/
-      docker:
-        # Specify the version you desire here
-        # https://circleci.com/docs/2.0/circleci-images/#nodejs
-        - image: circleci/node:lts
+  build:
+    filters: # required since `release` has tag filters AND requires `build`
+      tags:
+        only: /.*/
+    docker:
+      # Specify the version you desire here
+      # https://circleci.com/docs/2.0/circleci-images/#nodejs
+      - image: circleci/node:lts
 
-      # set working directory to sub folder
-      working_directory: ~/repo/middleware
+    # set working directory to sub folder
+    working_directory: ~/repo/middleware
 
-      steps:
-        - checkout:
-            path: ~/repo
+    steps:
+      - checkout:
+          path: ~/repo
 
-        - run:  # Access to @heroku/salesforce-sdk
-            name: Middleware Build and Test Prep
-            command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
-        - run: npm install
-        - run: npm run build
-        - run: npm run test
-        - run: echo "jq is installed on " $(which jq)
+      - run:  # Access to @heroku/salesforce-sdk
+          name: Middleware Build and Test Prep
+          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
+      - run: npm install
+      - run: npm run build
+      - run: npm run test
+      - run: echo "jq is installed on " $(which jq)
 
   #release job runs for no branches and only for tags starting with ‘v’.        
-  - release: 
-      requires:
-        - build
-      filters:
-        tags:
-          only: /^v.*/
-        branches:
-          ignore: /.*/
-      docker:
-        # Specify the version you desire here
-        # https://circleci.com/docs/2.0/circleci-images/#nodejs
-        - image: circleci/node:lts
+  release: 
+    requires:
+      - build
+    filters:
+      tags:
+        only: /^v.*/
+      branches:
+        ignore: /.*/
+    docker:
+      # Specify the version you desire here
+      # https://circleci.com/docs/2.0/circleci-images/#nodejs
+      - image: circleci/node:lts
 
-            # set working directory to sub folder
-      working_directory: ~/repo/middleware
+          # set working directory to sub folder
+    working_directory: ~/repo/middleware
 
-      steps:
-        - checkout:
-            path: ~/repo
+    steps:
+      - checkout:
+          path: ~/repo
 
-        - run:  # Access to @heroku/salesforce-sdk
-            name: Create binary tgz 
-            command: make package
-        - run: echo "run github command to upload the binary on " ${CIRCLE_BRANCH}:${CIRCLE_TAG}
+      - run:  # Access to @heroku/salesforce-sdk
+          name: Create binary tgz 
+          command: make package
+      - run: echo "run github command to upload the binary on " ${CIRCLE_BRANCH}:${CIRCLE_TAG}
   
