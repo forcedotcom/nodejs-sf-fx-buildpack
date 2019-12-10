@@ -35,9 +35,6 @@ jobs:
 
   #release job runs for no branches and only for tags starting with ‘v’.        
   release: 
-    requires:
-      - build
-
     docker:
       - image: cibuilds/github:0.13.0
           # set working directory to sub folder
@@ -50,4 +47,12 @@ jobs:
           at: ~/repo
       - run: ls -alh
 
+workflows:
+  version: 2
+  build-and-release:
+    jobs:
+      - build
+      - release:
+          requires:
+            - build
   
