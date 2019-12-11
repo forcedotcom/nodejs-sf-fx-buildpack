@@ -27,6 +27,9 @@ jobs:
       - run: npm run test
       - run: echo "jq is installed on " $(which jq)
       - run: cd .. && make package && ls -alh sf-fx-middleware-buildpack-*.tgz
+      - run: VERSION_TOML=v$(cat buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)
+      - run: echo ${VERSION_TOML}
+
       - persist_to_workspace:
           root: ~/repo
           paths:
