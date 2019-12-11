@@ -90,7 +90,7 @@ workflows:
   version: 2
   build-and-release:
     jobs:
-      - build      # job runs for all branches and all tags.
+      - build:      # job runs for all branches and all tags.
           filters: # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
