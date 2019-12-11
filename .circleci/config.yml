@@ -45,6 +45,7 @@ jobs:
               echo "VERSION_TOML is " $VERSION_TOML   
               echo "RELEASE_TAG is " $RELEASE_TAG
               echo "Git branch is " $CIRCLE_BRANCH
+              echo "CircleCI git tag is " $CIRCLE_TAG
               if [ "$VERSION_TOML" != "$RELEASE_TAG" ] && [ "$CIRCLE_BRANCH" = "master" ]; then                
                 git tag $VERSION_TOML
                 echo "about to - git push --tags origin ${CIRCLE_BRANCH}"
