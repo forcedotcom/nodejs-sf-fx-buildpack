@@ -46,6 +46,9 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run: ls -alh sf-fx-middleware-buildpack-*.tgz
+      - add_ssh_keys:
+          fingerprints:
+            - "27:9b:35:37:91:09:f0:67:71:1c:37:5b:82:55:14:1c"
       - run: ./ci-git-release.sh
 
 workflows:
