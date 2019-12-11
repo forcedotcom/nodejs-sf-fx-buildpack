@@ -2,7 +2,7 @@
 #
 # Check https://circleci.com/docs/2.0/language-javascript/ for more details
 #
-version: 2.1
+version: 2
 jobs:
 
   # build job runs for all branches and all tags.
@@ -26,22 +26,37 @@ jobs:
       - run: npm run build
       - run: npm run test
       - run:
+          #work around to carray env variable between bash shells
+          #see https://circleci.com/docs/2.0/env-vars/#using-bash_env-to-set-environment-variables
           name: Setup Bash Shell Environment Variables
           command: |
               echo "export VERSION_TOML=v$(cat ~/repo/buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)" >> $BASH_ENV
-              echo "export RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases" | jq -r '.[0].tag_name'`" >> $BASH_ENV      
-      - run: echo "VERSION_TOML is " $VERSION_TOML  && echo "RELEASE_TAG is " $RELEASE_TAG
+              echo "export RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases" | jq -r '.[0].tag_name'`" >> $BASH_ENV
+
+      #use write access ssh token to do git push (tags)
+      #see https://circleci.com/docs/2.0/gh-bb-integration/#deployment-keys-and-user-keys              
+      - add_ssh_keys:   
+          fingerprints:
+            - "27:9b:35:37:91:09:f0:67:71:1c:37:5b:82:55:14:1c"
       - run:
           name: Tag repository if verion in build.toml changed when merged to master/develop
           command: |
-              if [ "$VERSION_TOML" = "$RELEASE_TAG" ] && [ "$CIRCLE_BRANCH" = "jqian/detectsdk" ]; then
-                echo "branch is " $CIRCLE_BRANCH
-                echo "git tag it"
+              cd ~/repo
+              echo "VERSION_TOML is " $VERSION_TOML   
+              echo "RELEASE_TAG is " $RELEASE_TAG
+              echo "Git branch is " $CIRCLE_BRANCH
+              if [ "$VERSION_TOML" != "$RELEASE_TAG" ] && [ "$CIRCLE_BRANCH" = "master" ]; then                
+                git tag $VERSION_TOML
+                echo "about to - git push --tags origin ${CIRCLE_BRANCH}"
+                git push --tags origin ${CIRCLE_BRANCH}
               else
-                echo "tag already existed"
+                echo "Git tag already existed or not on master branch"
               fi
       #save the packaged tgz for release job to use
-      - run: cd .. && make package && ls -alh sf-fx-middleware-buildpack-*.tgz
+      - run: |
+          cd ~/repo
+          make package
+          ls -alh sf-fx-middleware-buildpack-$VERSION_TOML.tgz
       - persist_to_workspace:
           root: ~/repo
           paths:
@@ -50,28 +65,41 @@ jobs:
   #release job runs for no branches and only for tags starting with ‘v’.        
   release: 
     docker:
+      #We can shave a few seconds off of the job above by using the ghr Docker image from CI Builds.
+      #see https://circleci.com/blog/optimizing-react-native-camera/
       - image: cibuilds/github:0.13.0
-          # set working directory to sub folder
+
     working_directory: ~/repo
 
     steps:
-      - checkout
       - run: echo "ghr is installed on " $(which ghr)
       - run: echo "run github command to upload the binary on " ${CIRCLE_BRANCH}:${CIRCLE_TAG}
       - attach_workspace:
           at: ~/repo
       - run: ls -alh sf-fx-middleware-buildpack-*.tgz
-      - add_ssh_keys:
-          fingerprints:
-            - "27:9b:35:37:91:09:f0:67:71:1c:37:5b:82:55:14:1c"
-      - run: ./ci-git-release.sh
+      #- run: ./ci-git-release.sh
+      - run: 
+          name: Create github release, upload tgz to the release
+          command: |
+            RELEASE_NAME="Prerelease by circleci on ${CIRCLE_BRANCH}-${VERSION_TOML}"
+            echo $RELEASE_NAME
+            echo "use ghr to create and upload tgz file"
+            ghr -prerelease -n "${RELEASE_NAME}" -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_BRANCH} sf-fx-middleware-buildpack-*.tgz
 
 workflows:
   version: 2
   build-and-release:
     jobs:
-      - build
-      - release:
+      - build      # job runs for all branches and all tags.
+          filters: # required since `deploy` has tag filters AND requires `build`
+            tags:
+              only: /.*/
+      - release:   # job runs for master branches and only for tags starting with ‘v’.
           requires:
             - build
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              only: master
   
