@@ -26,7 +26,7 @@ jobs:
       - run: npm run build
       - run: npm run test
       - run:
-          #work around to carray env variable between bash shells
+          #work around to carry env variable between bash shells
           #see https://circleci.com/docs/2.0/env-vars/#using-bash_env-to-set-environment-variables
           name: Setup Bash Shell Environment Variables
           command: |

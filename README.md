@@ -1,5 +1,9 @@
 # sf-fx-middlewarre
 
+Everytime a version changes is made to build.toml, and the change is merged back to master branch. The circleci build-and-release workflow will automatically git tag it with the new version, then create a git release with the version tag, the release will also include the packaged tgz file to be used by other builder.
+
+**Note**: Newer version of the release binary (tgz) should be updated to the [pack-image git repo](https://github.com/heroku/pack-images)
+
 `make package` to generate the middleware buildpack tgz 
 
 To use the build pack... it must be put after the npm (as the buildpack is written in typescript, it needs npm to install tsc to compile to js)
@@ -20,4 +24,6 @@ evergreen functions:build jq-hello2 \
 	--buildpack=/Users/jqian/git/sf-fx-middleware/sf-fx-middleware-buildpack-v0.0.1.tgz \
 	--buildpack=heroku/node-function
 ```
+
+
   
