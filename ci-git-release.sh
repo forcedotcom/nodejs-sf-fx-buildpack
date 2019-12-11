@@ -17,8 +17,8 @@ if [ "$CIRCLE_BRANCH" = "jqian/detectsdk" ]; then
         ls -alh sf-fx-middleware-buildpack-${VERSION_TOML}.tgz
         RELEASE_NAME="Prerelease by circleci on ${CIRCLE_BRANCH}-${VERSION_TOML}"
         echo $RELEASE_NAME
-        echo "ghr "
-        ghr -prerelease -n ${RELEASE_NAME} -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_BRANCH} -delete ${VERSION_TOML} sf-fx-middleware-buildpack-${VERSION_TOML}.tgz       
+        echo "ghr"
+        ghr -prerelease -n "${RELEASE_NAME}" -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_BRANCH} -delete ${VERSION_TOML} sf-fx-middleware-buildpack-${VERSION_TOML}.tgz       
     fi
     #ghr -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${VERSION_TOML} ./artifacts/    
 fi
