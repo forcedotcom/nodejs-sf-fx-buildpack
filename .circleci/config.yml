@@ -28,7 +28,7 @@ jobs:
       - run:
           name: Setup Bash Shell Environment Variables
           command: |
-              echo "export VERSION_TOML=v$(cat ~repo/buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)" >> $BASH_ENV
+              echo "export VERSION_TOML=v$(cat ~/repo/buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)" >> $BASH_ENV
               echo "export RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases" | jq -r '.[0].tag_name'`" >> $BASH_ENV      
       - run: echo "VERSION_TOML is " $VERSION_TOML  && echo "RELEASE_TAG is " $RELEASE_TAG
       - run:
