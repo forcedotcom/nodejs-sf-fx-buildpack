@@ -25,17 +25,12 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm run test
-      - run: echo "jq is installed on " $(which jq)
       - run: cd .. && make package && ls -alh sf-fx-middleware-buildpack-*.tgz
-      - run: export VERSION_TOML=v$(cat ../buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs) && echo "VERSION_TOML is " $VERSION_TOML
-      - run: echo "exported VERSION_TOML is " $VERSION_TOML
-
+      #save the packaged tgz for release job to use
       - persist_to_workspace:
           root: ~/repo
           paths:
             - sf-fx-middleware-buildpack-*.tgz
-            - buildpack.toml
-            - ci-git-release.sh
 
   #release job runs for no branches and only for tags starting with ‘v’.        
   release: 
@@ -45,12 +40,12 @@ jobs:
     working_directory: ~/repo
 
     steps:
+      - checkout
       - run: echo "ghr is installed on " $(which ghr)
       - run: echo "run github command to upload the binary on " ${CIRCLE_BRANCH}:${CIRCLE_TAG}
       - attach_workspace:
           at: ~/repo
-      - run: ls -alh
-      - run: echo "jq is installed on " $(which jq)
+      - run: ls -alh sf-fx-middleware-buildpack-*.tgz
       - run: ./ci-git-release.sh
 
 workflows:
