@@ -2,7 +2,7 @@
 #
 # Check https://circleci.com/docs/2.0/language-javascript/ for more details
 #
-version: 2
+version: 2.1
 jobs:
 
   # build job runs for all branches and all tags.
@@ -25,15 +25,23 @@ jobs:
       - run: npm install
       - run: npm run build
       - run: npm run test
-      - run: export VERSION_TOML=v$(cat buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)
       - run:
           name: Setup Bash Shell Environment Variables
           command: |
-              echo "export VERSION_TOML=v$(cat buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)" >> $BASH_ENV
+              echo "export VERSION_TOML=v$(cat ~repo/buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)" >> $BASH_ENV
               echo "export RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases" | jq -r '.[0].tag_name'`" >> $BASH_ENV      
       - run: echo "VERSION_TOML is " $VERSION_TOML  && echo "RELEASE_TAG is " $RELEASE_TAG
-      - run: cd .. && make package && ls -alh sf-fx-middleware-buildpack-*.tgz
+      - run:
+          name: Tag repository if verion in build.toml changed when merged to master/develop
+          command: |
+              if [ "$VERSION_TOML" = "$RELEASE_TAG" ] && [ "$CIRCLE_BRANCH" = "jqian/detectsdk" ]; then
+                echo "branch is " $CIRCLE_BRANCH
+                echo "git tag it"
+              else
+                echo "tag already existed"
+              fi
       #save the packaged tgz for release job to use
+      - run: cd .. && make package && ls -alh sf-fx-middleware-buildpack-*.tgz
       - persist_to_workspace:
           root: ~/repo
           paths:
