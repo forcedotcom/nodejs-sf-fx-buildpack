@@ -32,6 +32,7 @@ jobs:
           paths:
             - sf-fx-middleware-buildpack-*.tgz
             - buildpack.toml
+            - ci-git-release.sh
 
   #release job runs for no branches and only for tags starting with ‘v’.        
   release: 
@@ -46,6 +47,8 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run: ls -alh
+      - run: echo "jq is installed on " $(which jq)
+      - run: ./ci-git-release.sh
 
 workflows:
   version: 2
