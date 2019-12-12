@@ -31,8 +31,12 @@ jobs:
           name: Setup Bash Shell Environment Variables
           command: |
               echo "export VERSION_TOML=v$(cat ~/repo/buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)" >> $BASH_ENV
-              echo "export RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases" | jq -r '.[0].tag_name'`" >> $BASH_ENV
-              echo "export FOUND_VERSION_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" -H "User-Agent: circleci-${CIRCLE_USERNAME}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases/tags/${VERSION_TOML}" | jq -r '.node_id'`" >> $BASH_ENV
+              #Get the latest(1st) release's tag_name
+              echo "export RELEASE_TAG_LATEST=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases" | jq -r '.[0].tag_name'`" >> $BASH_ENV
+              #Is the tag being used by a release
+              echo "export FOUND_RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" -H "User-Agent: circleci-${CIRCLE_USERNAME}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases/tags/${VERSION_TOML}" | jq -r '.node_id'`" >> $BASH_ENV
+              #Does the tag exist already on the github repo
+              echo "export FOUND_GIT_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/git/ref/tags/${VERSION_TOML}" | jq -r '.node_id'`" >> $BASH_ENV
 
       #use write access ssh token to do git push (tags)
       #see https://circleci.com/docs/2.0/gh-bb-integration/#deployment-keys-and-user-keys              
@@ -44,14 +48,16 @@ jobs:
           command: |
               cd ~/repo
               echo "VERSION_TOML is " $VERSION_TOML   
-              echo "RELEASE_TAG is " $RELEASE_TAG
-              echo "FOUND_VERSION_TAG is " $FOUND_VERSION_TAG
+              echo "RELEASE_TAG_LATEST is " $RELEASE_TAG_LATEST
+              echo "FOUND_RELEASE_TAG is " $FOUND_RELEASE_TAG
+              echo "FOUND_GIT_TAG is " $FOUND_GIT_TAG
               echo "Git branch is " $CIRCLE_BRANCH
               echo "CircleCI git tag is " $CIRCLE_TAG
 
               #push tag if git tag does not existed and on master branch
-              if [ "$FOUND_VERSION_TAG" = "null" ] && [ "$CIRCLE_BRANCH" = "master" ]; then                
-                git tag $VERSION_TOML
+              if [ "$FOUND_GIT_TAG" = "null" ] && [ "$CIRCLE_BRANCH" = "master" ]; then
+                #create an annotated git tag, so it can be queried by sha             
+                git tag -a -m "Tagged by circleci-${CIRCLE_USERNAME}" $VERSION_TOML
                 echo "run==> git push --tags origin master"
                 git push --tags origin master
               else
