@@ -50,8 +50,9 @@ jobs:
               echo "CircleCI git tag is " $CIRCLE_TAG
 
               #push tag if git tag does not existed and on master branch
-              if [ "$FOUND_VERSION_TAG" = "null" ] && [ "$CIRCLE_BRANCH" = "master" ]; then                
-                git tag $VERSION_TOML
+              if [ "$FOUND_VERSION_TAG" = "null" ] && [ "$CIRCLE_BRANCH" = "master" ]; then
+                #create an annotated git tag, so it can be queried by sha             
+                git tag $VERSION_TOML -a -m "Tagged by circleci-${CIRCLE_USERNAME}"
                 echo "run==> git push --tags origin master"
                 git push --tags origin master
               else
