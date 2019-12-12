@@ -32,6 +32,7 @@ jobs:
           command: |
               echo "export VERSION_TOML=v$(cat ~/repo/buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)" >> $BASH_ENV
               echo "export RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases" | jq -r '.[0].tag_name'`" >> $BASH_ENV
+              echo "export FOUND_VERSION_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" -H "User-Agent: circleci-${CIRCLE_USERNAME}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases/tags/${VERSION_TOML}" | jq -r '.node_id'`" >> $BASH_ENV
 
       #use write access ssh token to do git push (tags)
       #see https://circleci.com/docs/2.0/gh-bb-integration/#deployment-keys-and-user-keys              
@@ -44,12 +45,15 @@ jobs:
               cd ~/repo
               echo "VERSION_TOML is " $VERSION_TOML   
               echo "RELEASE_TAG is " $RELEASE_TAG
+              echo "FOUND_VERSION_TAG is " $FOUND_VERSION_TAG
               echo "Git branch is " $CIRCLE_BRANCH
               echo "CircleCI git tag is " $CIRCLE_TAG
-              if [ "$VERSION_TOML" != "$RELEASE_TAG" ] && [ "$CIRCLE_BRANCH" = "master" ]; then                
+
+              #push tag if git tag does not existed and on master branch
+              if [ "$FOUND_VERSION_TAG" = "null" ] && [ "$CIRCLE_BRANCH" = "master" ]; then                
                 git tag $VERSION_TOML
-                echo "about to - git push --tags origin ${CIRCLE_BRANCH}"
-                git push --tags origin ${CIRCLE_BRANCH}
+                echo "run==> git push --tags origin master"
+                git push --tags origin master
               else
                 echo "Git tag already existed or not on master branch"
               fi
@@ -63,7 +67,8 @@ jobs:
           paths:
             - sf-fx-middleware-buildpack-*.tgz
 
-  #release job runs for no branches and only for tags starting with ‘v’.        
+  #release job runs for no branches and only for tags starting with ‘v’. 
+  #when triggered by git tag push, CIRCLE_BRANCH is empty, CIRCLE_TAG should have the tag value
   release: 
     docker:
       #We can shave a few seconds off of the job above by using the ghr Docker image from CI Builds.
@@ -74,18 +79,19 @@ jobs:
 
     steps:
       - run: echo "ghr is installed on " $(which ghr)
-      - run: echo "run github command to upload the binary on " ${CIRCLE_BRANCH}:${CIRCLE_TAG}
+      - run: echo "run github command to upload the binary for tag "${CIRCLE_TAG}
       - attach_workspace:
           at: ~/repo
       - run: ls -alh sf-fx-middleware-buildpack-*.tgz
-      #- run: ./ci-git-release.sh
       - run: 
           name: Create github release, upload tgz to the release
           command: |
-            RELEASE_NAME="Prerelease by circleci on ${CIRCLE_BRANCH}-${VERSION_TOML}"
-            echo $RELEASE_NAME
+            RELEASE_NAME="Prerelease by circleci on ${CIRCLE_TAG}"
+            echo "RELEASE_NAME is " ${RELEASE_NAME}
             echo "use ghr to create and upload tgz file"
-            ghr -prerelease -n "${RELEASE_NAME}" -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_BRANCH} sf-fx-middleware-buildpack-*.tgz
+            if [ "$CIRCLE_TAG" != "" ]; then
+              ghr -prerelease -n "${RELEASE_NAME}" -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${CIRCLE_TAG} sf-fx-middleware-buildpack-*.tgz
+            fi
 
 workflows:
   version: 2
@@ -95,12 +101,12 @@ workflows:
           filters: # required since `deploy` has tag filters AND requires `build`
             tags:
               only: /.*/
-      - release:   # job runs for master branches and only for tags starting with ‘v’.
+      - release:   # job runs for no branches and only for tags starting with ‘v’.
           requires:
             - build
           filters:
             tags:
               only: /^v.*/
             branches:
-              only: master
+              ignore: /.*/
   
