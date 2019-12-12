@@ -30,13 +30,15 @@ jobs:
           #see https://circleci.com/docs/2.0/env-vars/#using-bash_env-to-set-environment-variables
           name: Setup Bash Shell Environment Variables
           command: |
-              echo "export VERSION_TOML=v$(cat ~/repo/buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)" >> $BASH_ENV
+              VERSION_BUILD_TOML=v$(cat ~/repo/buildpack.toml | grep -m 1 version | sed -e 's/version = //g' | xargs)
+              echo "VERSION_BUILD_TOML is "$VERSION_BUILD_TOML
+              echo "export VERSION_TOML=${VERSION_BUILD_TOML}" >> $BASH_ENV
               #Get the latest(1st) release's tag_name
               echo "export RELEASE_TAG_LATEST=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases" | jq -r '.[0].tag_name'`" >> $BASH_ENV
               #Is the tag being used by a release
-              echo "export FOUND_RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" -H "User-Agent: circleci-${CIRCLE_USERNAME}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases/tags/${VERSION_TOML}" | jq -r '.node_id'`" >> $BASH_ENV
+              echo "export FOUND_RELEASE_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" -H "User-Agent: circleci-${CIRCLE_USERNAME}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/releases/tags/${VERSION_BUILD_TOML}" | jq -r '.node_id'`" >> $BASH_ENV
               #Does the tag exist already on the github repo
-              echo "export FOUND_GIT_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/git/ref/tags/${VERSION_TOML}" | jq -r '.node_id'`" >> $BASH_ENV
+              echo "export FOUND_GIT_TAG=`curl -H "Authorization: token ${GITHUB_CI_TOKEN}" --silent "https://api.github.com/repos/forcedotcom/sf-fx-middleware/git/ref/tags/${VERSION_BUILD_TOML}" | jq -r '.node_id'`" >> $BASH_ENV
 
       #use write access ssh token to do git push (tags)
       #see https://circleci.com/docs/2.0/gh-bb-integration/#deployment-keys-and-user-keys              
