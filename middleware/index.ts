@@ -7,7 +7,7 @@ import { ConnectionConfig,
         SObject, 
         SuccessResult, 
         ErrorResult,
-        UserContext as SdkUseContext,
+        UserContext as SdkUserContext,
         Context as SdkContext } from '@heroku/salesforce-sdk';
 
 /**
@@ -150,14 +150,14 @@ function createSdkContext(reqContext: any, accessToken?: string, functionInvocat
  * 
  * @param reqContext 
  */
-function createSdkUserContext(reqContext: any): SdkUseContext {
+function createSdkUserContext(reqContext: any): SdkUserContext {
   const userContext = reqContext.userContext;
   if (!userContext) {
       const message = `UserContext not provided: ${JSON.stringify(reqContext)}`;
       throw new Error(message);
   }
 
-  return new SdkUseContext(
+  return new SdkUserContext(
       userContext.orgDomainUrl,
       userContext.orgId,
       userContext.salesforceBaseUrl,
