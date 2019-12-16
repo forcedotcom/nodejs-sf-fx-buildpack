@@ -4,8 +4,10 @@ import { ConnectionConfig,
         ForceApi, 
         Logger, 
         UnitOfWork, 
-        FunctionInvocationRequest, 
-        UserContext as SdkUseContext,
+        SObject, 
+        SuccessResult, 
+        ErrorResult,
+        UserContext as SdkUserContext,
         Context as SdkContext } from '@heroku/salesforce-sdk';
 
 /**
@@ -148,14 +150,14 @@ function createSdkContext(reqContext: any, accessToken?: string, functionInvocat
  * 
  * @param reqContext 
  */
-function createSdkUserContext(reqContext: any): SdkUseContext {
+function createSdkUserContext(reqContext: any): SdkUserContext {
   const userContext = reqContext.userContext;
   if (!userContext) {
       const message = `UserContext not provided: ${JSON.stringify(reqContext)}`;
       throw new Error(message);
   }
 
-  return new SdkUseContext(
+  return new SdkUserContext(
       userContext.orgDomainUrl,
       userContext.orgId,
       userContext.salesforceBaseUrl,
@@ -163,4 +165,53 @@ function createSdkUserContext(reqContext: any): SdkUseContext {
       userContext.userId,
       userContext.onBehalfOfUserId
   );
+}
+
+// If an accessToken is provided, helper class for saving function response to FunctionInvocationRequest.Response.
+// TODO: Remove when FunctionInvocationRequest is deprecated.
+class FunctionInvocationRequest {
+  public response: any;
+  public status: string;
+
+  constructor(public readonly id: string, 
+              private readonly logger: Logger, 
+              private readonly forceApi?: ForceApi) {
+  }
+
+  /**
+   * Saves FunctionInvocationRequest either through API w/ accessToken.
+   *
+   * @throws err if response not provided or on failed save
+   */
+  public async save(): Promise<any> {
+      if (!this.response) {
+          throw new Error('Response not provided');
+      }
+
+      if (this.forceApi) {
+          const responseBase64 = Buffer.from(JSON.stringify(this.response)).toString('base64');
+
+          try {
+              // Prime pump (W-6841389)
+              const soql = `SELECT Id, FunctionName, Status, CreatedById, CreatedDate FROM FunctionInvocationRequest WHERE Id ='${this.id}'`;
+              await this.forceApi.query(soql);
+          } catch (err) {
+              this.logger.warn(err.message);
+          }
+
+          const fxInvocation = new SObject('FunctionInvocationRequest').withId(this.id);
+          fxInvocation.setValue('ResponseBody', responseBase64);
+          const result: SuccessResult | ErrorResult = await this.forceApi.update(fxInvocation);
+          if (!result.success && 'errors' in result) {
+              // Tells tsc that 'errors' exist and join below is okay
+              const msg = `Failed to send response [${this.id}]: ${result.errors.join(',')}`;
+              this.logger.error(msg);
+              throw new Error(msg);
+          } else {
+              return result;
+          }
+      } else {
+          throw new Error('Authorization not provided');
+      }
+  }
 }
