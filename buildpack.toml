@@ -1,7 +1,7 @@
 api = "0.2"
 
 [buildpack]
-id = "salesforce/sf-fx-middleware-nodejs"
+id = "salesforce/nodejs-sf-fx-buildpack"
 name = "Salesforce Function Structured Middleware"
 version = "0.0.6"
 
