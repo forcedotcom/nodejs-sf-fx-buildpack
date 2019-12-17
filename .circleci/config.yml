@@ -68,7 +68,7 @@ jobs:
       - run: |
           cd ~/repo
           make package
-          ls -alh sf-fx-middleware-buildpack-$VERSION_TOML.tgz
+          ls -alh sf-fx-middleware-nodejs-buildpack-$VERSION_TOML.tgz
       - persist_to_workspace:
           root: ~/repo
           paths:
@@ -89,7 +89,7 @@ jobs:
       - run: echo "run github command to upload the binary for tag "${CIRCLE_TAG}
       - attach_workspace:
           at: ~/repo
-      - run: ls -alh sf-fx-middleware-buildpack-*.tgz
+      - run: ls -alh sf-fx-middleware-nodejs-buildpack-*.tgz
       - run: 
           name: Create github release, upload tgz to the release
           command: |
@@ -97,7 +97,7 @@ jobs:
             echo "RELEASE_NAME is " ${RELEASE_NAME}
             echo "use ghr to create and upload tgz file"
             if [ "$CIRCLE_TAG" != "" ]; then
-              ghr -prerelease -n "${RELEASE_NAME}" -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${CIRCLE_TAG} sf-fx-middleware-buildpack-*.tgz
+              ghr -prerelease -n "${RELEASE_NAME}" -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${CIRCLE_TAG} sf-fx-middleware-nodejs-buildpack-*.tgz
             fi
 
 workflows:
