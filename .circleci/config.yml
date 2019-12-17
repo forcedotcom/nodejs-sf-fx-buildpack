@@ -68,11 +68,11 @@ jobs:
       - run: |
           cd ~/repo
           make package
-          ls -alh sf-fx-middleware-buildpack-$VERSION_TOML.tgz
+          ls -alh nodejs-sf-fx-buildpack-$VERSION_TOML.tgz
       - persist_to_workspace:
           root: ~/repo
           paths:
-            - sf-fx-middleware-buildpack-*.tgz
+            - nodejs-sf-fx-buildpack-*.tgz
 
   #release job runs for no branches and only for tags starting with ‘v’. 
   #when triggered by git tag push, CIRCLE_BRANCH is empty, CIRCLE_TAG should have the tag value
@@ -89,7 +89,7 @@ jobs:
       - run: echo "run github command to upload the binary for tag "${CIRCLE_TAG}
       - attach_workspace:
           at: ~/repo
-      - run: ls -alh sf-fx-middleware-buildpack-*.tgz
+      - run: ls -alh nodejs-sf-fx-buildpack-*.tgz
       - run: 
           name: Create github release, upload tgz to the release
           command: |
@@ -97,7 +97,7 @@ jobs:
             echo "RELEASE_NAME is " ${RELEASE_NAME}
             echo "use ghr to create and upload tgz file"
             if [ "$CIRCLE_TAG" != "" ]; then
-              ghr -prerelease -n "${RELEASE_NAME}" -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${CIRCLE_TAG} sf-fx-middleware-buildpack-*.tgz
+              ghr -prerelease -n "${RELEASE_NAME}" -t ${GITHUB_CI_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} -delete ${CIRCLE_TAG} nodejs-sf-fx-buildpack-*.tgz
             fi
 
 workflows:
