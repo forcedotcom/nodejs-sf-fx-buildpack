@@ -72,7 +72,7 @@ jobs:
       - persist_to_workspace:
           root: ~/repo
           paths:
-            - sf-fx-middleware-buildpack-*.tgz
+            - sf-fx-middleware-nodejs-buildpack-*.tgz
 
   #release job runs for no branches and only for tags starting with ‘v’. 
   #when triggered by git tag push, CIRCLE_BRANCH is empty, CIRCLE_TAG should have the tag value
