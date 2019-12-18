@@ -16,14 +16,14 @@ pack build jq-hello1 \
 	--builder heroku/functions-buildpacks-debug \
 	--buildpack=heroku/nodejs-engine-buildpack \
 	--buildpack=heroku/nodejs-npm-buildpack \
-	--buildpack=/Users/jqian/git/sf-fx-middleware/nodejs-sf-fx-buildpack-v0.0.6.tgz \
+	--buildpack=/Users/jqian/git/nodejs-sf-fx-buildpack/nodejs-sf-fx-buildpack-v0.0.6.tgz \
 	--buildpack=heroku/node-function 
   
 evergreen functions:build jq-hello2 \
 	-v --clear-cache -e NPM_TOKEN \
 	--buildpack=heroku/nodejs-engine-buildpack \
 	--buildpack=heroku/nodejs-npm-buildpack \
-	--buildpack=/Users/jqian/git/sf-fx-middleware/nodejs-sf-fx-buildpack-v0.0.6.tgz \
+	--buildpack=/Users/jqian/git/nodejs-sf-fx-buildpack/nodejs-sf-fx-buildpack-v0.0.6.tgz \
 	--buildpack=heroku/node-function
 ```
 
