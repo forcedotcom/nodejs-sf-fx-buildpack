@@ -25,7 +25,7 @@
   },
   "author": "TODO",
   "dependencies": {
-    "@heroku/salesforce-sdk": "0.0.1-develop.9",
+    "@heroku/salesforce-sdk": "0.0.1-develop.10",
     "tslib": "1.9.3"
   },
   "devDependencies": {

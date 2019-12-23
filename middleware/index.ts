@@ -136,13 +136,14 @@ function createSdkContext(reqContext: any, accessToken?: string, functionInvocat
         }
     }
 
-    return new SdkContext(apiVersion,
+    let returnSdkContext: SdkContext = new SdkContext(apiVersion,
                           userCtx, 
                           logger, 
                           reqContext.payloadVersion,
                           forceApi, 
-                          unitOfWork,
-                          fxInvocation);
+                          unitOfWork);
+    returnSdkContext['fxInvocation'] = fxInvocation;
+    return returnSdkContext;
 }
 
 /**
