@@ -88,8 +88,8 @@ export class FakeFunction {
         this.invokeParams = { context, event };
 
         if (this.doFxInvocation) {
-            context.fxInvocation.response = '{}';
-            context.fxInvocation.save();
+            context['fxInvocation'].response = '{}';
+            context['fxInvocation'].save();
         }
 
         return Promise.resolve(null);
