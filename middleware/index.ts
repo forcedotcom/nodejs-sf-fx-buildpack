@@ -130,20 +130,22 @@ function createSdkContext(reqContext: any, accessToken?: string, functionInvocat
         );
         unitOfWork = new UnitOfWork(config, logger);
         forceApi = new ForceApi(config, logger);
-
-        if (functionInvocationId) {
-            fxInvocation = new FunctionInvocationRequest(functionInvocationId, logger, forceApi);
-        }
     }
 
-    let returnSdkContext: SdkContext = new SdkContext(apiVersion,
-                          userCtx, 
-                          logger, 
-                          reqContext.payloadVersion,
-                          forceApi, 
-                          unitOfWork);
-    returnSdkContext['fxInvocation'] = fxInvocation;
-    return returnSdkContext;
+    let initedSdkContext: SdkContext = new SdkContext(apiVersion,
+                                                      userCtx,
+                                                      logger,
+                                                      reqContext.payloadVersion,
+                                                      forceApi,
+                                                      unitOfWork);
+
+    // if functionInvocationId is set,
+    // dynamically set "fxInvocation" object as common code for internal hello and pdf function to share
+    if (functionInvocationId) {
+        fxInvocation = new FunctionInvocationRequest(functionInvocationId, logger, forceApi);
+        initedSdkContext['fxInvocation'] = fxInvocation;
+    }
+    return initedSdkContext;
 }
 
 /**
@@ -168,6 +170,7 @@ function createSdkUserContext(reqContext: any): SdkUserContext {
   );
 }
 
+// Common code for hello and pdf function to signal function execution results and status
 // If an accessToken is provided, helper class for saving function response to FunctionInvocationRequest.Response.
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
