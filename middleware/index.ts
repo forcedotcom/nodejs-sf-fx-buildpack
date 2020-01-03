@@ -141,7 +141,7 @@ function createSdkContext(reqContext: any, accessToken?: string, functionInvocat
 
     // if functionInvocationId is set,
     // dynamically set "fxInvocation" object as common code for internal hello and pdf function to share
-    if (functionInvocationId) {
+    if (accessToken && functionInvocationId) {
         fxInvocation = new FunctionInvocationRequest(functionInvocationId, logger, forceApi);
         initedSdkContext['fxInvocation'] = fxInvocation;
     }
