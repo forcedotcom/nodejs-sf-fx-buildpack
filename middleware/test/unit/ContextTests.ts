@@ -74,8 +74,8 @@ describe('Context Tests', () => {
         // Requires accessToken
         expect(context.forceApi).to.exist;
         expect(context.unitOfWork).to.exist;
-        expect(context.fxInvocation).to.exist;
-        expect(context.fxInvocation.id).to.equal(fxInvocationId);
+        expect(context['fxInvocation']).to.exist;
+        expect(context['fxInvocation'].id).to.equal(fxInvocationId);
 
         // Validate ConnectionConfig has expected values
         // TODO: Prevent this, somehow.
@@ -111,7 +111,7 @@ describe('Context Tests', () => {
         // Requires accessToken
         expect(context.forceApi).to.not.exist;
         expect(context.unitOfWork).to.not.exist;
-        expect(context.fxInvocation).to.not.exist;
+        expect(context['fxInvocation']).to.not.exist;
     });
 
     it('validate API version override', async () => {

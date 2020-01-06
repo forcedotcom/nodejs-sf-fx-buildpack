@@ -79,7 +79,7 @@ jobs:
   release: 
     docker:
       #We can shave a few seconds off of the job above by using the ghr Docker image from CI Builds.
-      #see https://circleci.com/blog/optimizing-react-native-camera/
+      #see https://circleci.com/blog/publishing-to-github-releases-via-circleci/
       - image: cibuilds/github:0.13.0
 
     working_directory: ~/repo

@@ -99,7 +99,7 @@ describe('Invoke Function Tests', () => {
         postInvokeAsserts(fakeFx);
         const paramContext: Context = fakeFx.invokeParams.context;
 
-        expect(context.fxInvocation.id).to.equal(paramContext.fxInvocation.id);
+        expect(context.fxInvocation.id).to.equal(paramContext['fxInvocation'].id);
         const userContext: UserContext = fakeFx.invokeParams.context.userContext;
         expect(context.userContext.orgId).to.equal(userContext.orgId);
         return Promise.resolve(null);
