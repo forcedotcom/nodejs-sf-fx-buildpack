@@ -140,7 +140,7 @@ function createSdkContext(reqContext: any, accessToken?: string, functionInvocat
                                                       unitOfWork);
 
     // if functionInvocationId is set,
-    // dynamically set "fxInvocation" object as common code for internal hello and pdf function to share
+    // dynamically set "fxInvocation" object as common code
     if (accessToken && functionInvocationId) {
         fxInvocation = new FunctionInvocationRequest(functionInvocationId, logger, forceApi);
         initedSdkContext['fxInvocation'] = fxInvocation;
@@ -170,8 +170,6 @@ function createSdkUserContext(reqContext: any): SdkUserContext {
   );
 }
 
-// Common code for hello and pdf function to signal function execution results and status
-// If an accessToken is provided, helper class for saving function response to FunctionInvocationRequest.Response.
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
   public response: any;
@@ -183,7 +181,7 @@ class FunctionInvocationRequest {
   }
 
   /**
-   * Saves FunctionInvocationRequest either through API w/ accessToken.
+   * Saves FunctionInvocationRequest
    *
    * @throws err if response not provided or on failed save
    */
