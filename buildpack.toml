@@ -3,7 +3,10 @@ api = "0.2"
 [buildpack]
 id = "salesforce/nodejs-fn"
 name = "Salesforce NodeJS Function Structured Middleware Buildpack"
-version = "0.0.8"
+version = "0.0.9"
 
 [[stacks]]
 id = "heroku-18"
+
+[[stacks]]
+id = "io.buildpacks.stacks.bionic"
