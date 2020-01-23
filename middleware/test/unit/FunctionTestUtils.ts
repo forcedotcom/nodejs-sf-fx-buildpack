@@ -1,4 +1,4 @@
-import { UserContext, Context } from '@heroku/salesforce-sdk';
+import { UserContext, Context } from '@salesforce/salesforce-sdk';
 import * as sinon from 'sinon';
 
 export const generateData = (setAccessToken: boolean = true, setOnBehalfOfUserId: boolean = false): any => {

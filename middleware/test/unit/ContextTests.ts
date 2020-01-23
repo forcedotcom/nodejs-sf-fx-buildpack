@@ -2,7 +2,7 @@
 import { expect } from 'chai';
 import 'mocha';
 
-import { Constants, Context, ConnectionConfig } from '@heroku/salesforce-sdk';
+import { Constants, Context, ConnectionConfig } from '@salesforce/salesforce-sdk';
 import { generateData, generateRawMiddleWareRequest } from './FunctionTestUtils';
 import applySfFxMiddleware from '../../index';
 
