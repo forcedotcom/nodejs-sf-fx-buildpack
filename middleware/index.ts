@@ -8,7 +8,7 @@ import { ConnectionConfig,
         SuccessResult, 
         ErrorResult,
         UserContext as SdkUserContext,
-        Context as SdkContext } from '@heroku/salesforce-sdk';
+        Context as SdkContext } from '@salesforce/salesforce-sdk';
 
 /**
  * sample request body from core

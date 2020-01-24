@@ -19,9 +19,6 @@ jobs:
       - checkout:
           path: ~/repo
 
-      - run:  # Access to @heroku/salesforce-sdk
-          name: Middleware Build and Test Prep
-          command: echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" > ~/.npmrc
       - run: npm install
       - run: npm run build
       - run: npm run test

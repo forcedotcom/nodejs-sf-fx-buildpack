@@ -7,7 +7,7 @@ import * as request from 'request-promise-native';
 
 use(chaiAsPromised);
 
-import { Context, UserContext } from '@heroku/salesforce-sdk';
+import { Context, UserContext } from '@salesforce/salesforce-sdk';
 import {generateData, FakeFunction, generateRawMiddleWareRequest} from './FunctionTestUtils';
 import applySfFxMiddleware from '../../index';
 
