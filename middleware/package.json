@@ -25,7 +25,7 @@
   },
   "author": "TODO",
   "dependencies": {
-    "@salesforce/salesforce-sdk": "0.0.1-develop.11",
+    "@salesforce/salesforce-sdk": "0.0.1-develop.12",
     "tslib": "1.9.3"
   },
   "devDependencies": {

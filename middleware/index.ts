@@ -57,12 +57,12 @@ import { ConnectionConfig,
 /**
  * @param request -- contains [headers, payload] 
  * @param state -- not used as an input here
- * @param resultArgs -- not used as an input here
+ * @param resultArgs -- Array, the last element is logger, from the node-function-buildpack's system function
  * @return Array -- array of arguments that will be passed to the next middleware function chain as the resultArgs(the 3rd argument)
  *                  OR
  *                  as the input argument to user functions if this is the last middleware function
  */
-export default function applySfFxMiddleware(request: any, state: any, resultArgs: any): Array<any> {
+export default function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): Array<any> {
     //validate the input request
     if (!request) {
         throw new Error('Request Data not provided');
@@ -91,8 +91,16 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
         delete data.sfContext;
     }
 
+    // logger is the last element in the array
+    const logger: Logger = resultArgs[resultArgs.length-1];
+    if (!logger) {
+      throw new Error('Logger not provided in resultArgs from node system function');
+    }
+
     //construct the sdk context, send it to the user function
+    //the logger has been inited in the system function of the node function buildpack, is passed in as an attribute on the resultArgs
     const sdkContext = createSdkContext(data.context,
+                                        logger,
                                         accessToken, 
                                         functionInvocationId);
     return [userFxPayload, sdkContext];
@@ -105,7 +113,7 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
  * @param accessToken 
  * @param functionInvocationId 
  */
-function createSdkContext(reqContext: any, accessToken?: string, functionInvocationId?: string): SdkContext {
+function createSdkContext(reqContext: any, logger: Logger, accessToken?: string, functionInvocationId?: string): SdkContext {
     if (!reqContext) {
         throw new Error('Context not provided.');
     }
@@ -121,7 +129,6 @@ function createSdkContext(reqContext: any, accessToken?: string, functionInvocat
     let forceApi: ForceApi;
     let unitOfWork: UnitOfWork;
     let fxInvocation: FunctionInvocationRequest;
-    const logger: Logger = Logger.create(true);
     if (accessToken) {
         const config: ConnectionConfig = new ConnectionConfig(
             accessToken,
@@ -135,7 +142,6 @@ function createSdkContext(reqContext: any, accessToken?: string, functionInvocat
     let initedSdkContext: SdkContext = new SdkContext(apiVersion,
                                                       userCtx,
                                                       logger,
-                                                      reqContext.payloadVersion,
                                                       forceApi,
                                                       unitOfWork);
 
