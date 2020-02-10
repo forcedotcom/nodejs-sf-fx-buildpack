@@ -103,7 +103,7 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
                                         logger,
                                         accessToken, 
                                         functionInvocationId);
-    return [userFxPayload, sdkContext];
+    return [userFxPayload, sdkContext, logger];
 }
 
 /**
