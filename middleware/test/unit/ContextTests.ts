@@ -2,7 +2,7 @@
 import { expect } from 'chai';
 import 'mocha';
 
-import { Constants, Context, ConnectionConfig } from '@salesforce/salesforce-sdk';
+import { Constants, Context, ConnectionConfig, Logger} from '@salesforce/salesforce-sdk';
 import { generateData, generateRawMiddleWareRequest } from './FunctionTestUtils';
 import applySfFxMiddleware from '../../index';
 
@@ -52,7 +52,8 @@ describe('Context Tests', () => {
 
     const getSdkContext = (data: any) : Context => {
         const rawRequest = generateRawMiddleWareRequest(data);
-        const mwResult: any = applySfFxMiddleware(rawRequest, {}, {});
+        const logger = new Logger('Evergreen Logger Context Unit Test');
+        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
