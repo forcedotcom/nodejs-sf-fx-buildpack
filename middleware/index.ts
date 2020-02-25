@@ -120,8 +120,8 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
     const user = createUser(userContext);
 
     // If accessToken was provided, setup APIs.
-    let dataApi: DataApi;
-    let unitOfWork: UnitOfWork;
+    let dataApi: DataApi | undefined;
+    let unitOfWork: UnitOfWork | undefined;
     if (accessToken) {
         const config: ConnectionConfig = new ConnectionConfig(
             accessToken,
