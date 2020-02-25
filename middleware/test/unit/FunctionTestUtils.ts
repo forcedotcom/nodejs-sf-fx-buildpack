@@ -1,8 +1,8 @@
-import { UserContext, Context } from '@salesforce/salesforce-sdk';
+import { Context, Org, User } from '@salesforce/salesforce-sdk';
 import * as sinon from 'sinon';
 
 export const generateData = (setAccessToken: boolean = true, setOnBehalfOfUserId: boolean = false): any => {
-    const userContext: UserContext = {
+    const userContext = {
         orgDomainUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
         orgId:'00Dxx0000006GoF',
         salesforceBaseUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
@@ -12,7 +12,7 @@ export const generateData = (setAccessToken: boolean = true, setOnBehalfOfUserId
 
     if (setOnBehalfOfUserId) {
         // Workaround readonly prop
-        userContext['onBehalfOfUserId' as UserContext['onBehalfOfUserId']] = '005xx000001X7dy';
+        userContext['onBehalfOfUserId'] = '005xx000001X7dy';
     }
 
     const sfContext = {
@@ -60,9 +60,9 @@ export const generateCloudevent = (data: any): any => {
 
 export const generateRawMiddleWareRequest = (data: any): any => {
     const cloudEvent: any = generateCloudevent(data);
-    const rawheaders ={
-        "content-type" : "application/json",
-        "authorization" : "C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J"
+    const rawheaders = {
+        'authorization' : 'C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J',
+        'content-type' : [ 'application/json' ],
     };
     return {
         headers: rawheaders,
