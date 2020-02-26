@@ -1,69 +1,185 @@
 
-import { ConnectionConfig, 
-        Constants, 
-        ForceApi, 
-        Logger, 
-        UnitOfWork, 
-        SObject, 
-        SuccessResult, 
-        ErrorResult,
-        UserContext as SdkUserContext,
-        Context as SdkContext } from '@salesforce/salesforce-sdk';
+import {
+    ConnectionConfig,
+    Constants,
+    Context,
+    DataApi,
+    ErrorResult,
+    InvocationEvent,
+    Logger,
+    Org,
+    SObject,
+    SuccessResult,
+    UnitOfWork,
+    User,
+} from '@salesforce/salesforce-sdk';
 
-/**
- * sample request body from core
- * 
-{
-  "type": "com.salesforce.function.invoke",
-  "source": "urn:event:from:salesforce/xx/224.0/00Dxx0000006KYV/PrintJob/9mdxx00000002Hx",
-  "id": "00Dxx0000006KYV-4SRXEGsFmeIAEV2VI5V21V",
-  "time": "2019-11-14T20:45:33.588066Z",
-  "schemaURL": null,
-  "contentType": "application/json",
-  "data": {
-    "context": {
-      "apiVersion": "48.0",
-      "payloadVersion": "224.1",
-      "userContext": {
-        "orgId": "00Dxx0000006KYV",
-        "userId": "005xx000001X9sT",
-        "onBehalfOfUserId": null,
-        "username": "cloud@00dxx0000006kyvea2",
-        "salesforceBaseUrl": "http://jqian-ltm.internal.salesforce.com:6109",
-        "orgDomainUrl": null
+
+// TODO: Remove when FunctionInvocationRequest is deprecated.
+class FunctionInvocationRequest {
+  public response: any;
+  public status: string;
+
+  constructor(public readonly id: string,
+              private readonly logger: Logger,
+              private readonly dataApi?: DataApi) {
+  }
+
+  /**
+   * Saves FunctionInvocationRequest
+   *
+   * @throws err if response not provided or on failed save
+   */
+  public async save(): Promise<any> {
+      if (!this.response) {
+          throw new Error('Response not provided');
       }
-    },
-    "payload": {
-      "jobId": "PDF-JOB-2c33a77f-36c3-4c8a-aa9e-9a2925487349",
-      "url": "http://c.dev.visual.localhost.soma.force.com:6109/apex/advancedVPage?__pdffx-renderas-override__=true",
-      "html": null,
-      "isLightning": false,
-      "sessionId": "00Dxx0000006KYV!AQEAQFs8bC0sxQ_B.Qpt1c_GPLLEsQi9WGbCEUJlSJ8.MGC_Bzr1YQLu6m8vpW0VfEixurFuG8AhdYWpqSwdHrnhwLgT0681",
-      "lightningSessionId": null,
-      "requestVerificationToken": "AAAAAW5rqoZdAAAAAAAAAAAAAAAAAAAAAAAA4HheNFAbDl8vpenXOXb8kopR4X3uTxj9yZrtpnrW6j0RQzBQh6lr42mq_0OOuGMxDJgZPfJNLARHSAfkNWsZaFs="
-    },
-    "sfContext": {
-      "accessToken": "00Dxx0000006KYV!AQEAQHgHXd4DkZjmed1wSZMh85jXq8nAzAIt1zeK.NrvrHaSoemaPjbIDwfTWxdDrlu3Mpuft5JchelVkJ3mkwW_GKz2eOK.",
-      "functionInvocationId": "9mdxx00000002Hx",
-      "functionName": "salesforce/lightning-bridge/pdf-creator",
-      "requestId": "4SRXEGsFmeIAEV2VI5V21V",
-      "resource": null
-    }
-  },
-  "specVersion": "0.2"
+
+      if (this.dataApi) {
+          const responseBase64 = Buffer.from(JSON.stringify(this.response)).toString('base64');
+
+          try {
+              // Prime pump (W-6841389)
+              const soql = `SELECT Id, FunctionName, Status, CreatedById, CreatedDate FROM FunctionInvocationRequest WHERE Id ='${this.id}'`;
+              await this.dataApi.query(soql);
+          } catch (err) {
+              this.logger.warn(err.message);
+          }
+
+          const fxInvocation = new SObject('FunctionInvocationRequest').withId(this.id);
+          fxInvocation.setValue('ResponseBody', responseBase64);
+          const result: SuccessResult | ErrorResult = await this.dataApi.update(fxInvocation);
+          if (!result.success && 'errors' in result) {
+              // Tells tsc that 'errors' exist and join below is okay
+              const msg = `Failed to send response [${this.id}]: ${result.errors.join(',')}`;
+              this.logger.error(msg);
+              throw new Error(msg);
+          } else {
+              return result;
+          }
+      } else {
+          throw new Error('Authorization not provided');
+      }
+  }
 }
- */
 
 /**
- * @param request -- contains [headers, payload] 
- * @param state -- not used as an input here
- * @param resultArgs -- Array, the last element is logger, from the node-function-buildpack's system function
- * @return Array -- array of arguments that will be passed to the next middleware function chain as the resultArgs(the 3rd argument)
+ * Construct Event from invocation request.
+ *
+ * @param data    -- function payload
+ * @param headers -- request headers
+ * @param payload -- request payload
+ * @return event
+ */
+function createEvent(data: any, headers: any, payload: any): InvocationEvent {
+    return new InvocationEvent(
+        data,
+        payload.contentType,
+        payload.schemaURL,
+        payload.id,
+        payload.source,
+        payload.time,
+        payload.type,
+        headersToMap(headers)
+    );
+}
+
+function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<string>> {
+    const headersMap: Map<string, ReadonlyArray<string>> = new Map(Object.entries(headers));
+    return headersMap;
+}
+
+/**
+ * Construct User object from the request context.
+ *
+ * @param userContext -- userContext object representing invoking org and user
+ * @return user
+ */
+function createUser(userContext: any): User {
+    return new User(
+        userContext.userId,
+        userContext.username,
+        userContext.onBehalfOfUserId
+    );
+}
+
+/**
+ * Construct Org object from the request context.
+ *
+ * @param reqContext
+ * @return org
+ */
+function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
+    const userContext = reqContext.userContext;
+    if (!userContext) {
+        const message = `UserContext not provided: ${JSON.stringify(reqContext)}`;
+        throw new Error(message);
+    }
+
+    const apiVersion = reqContext.apiVersion || process.env.FX_API_VERSION || Constants.CURRENT_API_VERSION;
+    const user = createUser(userContext);
+
+    // If accessToken was provided, setup APIs.
+    let dataApi: DataApi | undefined;
+    let unitOfWork: UnitOfWork | undefined;
+    if (accessToken) {
+        const config: ConnectionConfig = new ConnectionConfig(
+            accessToken,
+            apiVersion,
+            userContext.salesforceBaseUrl
+        );
+        unitOfWork = new UnitOfWork(config, logger);
+        dataApi = new DataApi(config, logger);
+    }
+
+    return new Org(
+        apiVersion,
+        userContext.salesforceBaseUrl,
+        userContext.orgDomainUrl,
+        userContext.orgId,
+        user,
+        dataApi,
+        unitOfWork
+    );
+}
+
+/**
+ * Construct Context from function payload.
+ *
+ * @param reqContext           -- reqContext from the request, contains salesforce stuff (user reqContext, etc)
+ * @param accessToken          -- accessToken for function org access, if provided
+ * @param functionInvocationId -- FunctionInvocationRequest ID, if applicable
+ * @return context
+ */
+function createContext(id: string, logger: Logger, reqContext: any, accessToken?: string, functionInvocationId?: string): Context {
+    if (typeof reqContext === 'string') {
+        reqContext = JSON.parse(reqContext);
+    }
+
+    const org = createOrg(logger, reqContext, accessToken);
+    const context = new Context(id, logger, org);
+
+    // If functionInvocationId is provided, create and set FunctionInvocationRequest object
+    let fxInvocation: FunctionInvocationRequest;
+    if (accessToken && functionInvocationId) {
+        fxInvocation = new FunctionInvocationRequest(functionInvocationId, logger, org.data);
+        context['fxInvocation'] = fxInvocation;
+    }
+    return context;
+}
+
+/**
+ * Initialize Salesforce SDK for function invocation.
+ *
+ * @param request     -- contains {payload,headers}, see https://github.com/heroku/node-function-buildpack/blob/master/system/index.js#L59
+ * @param state       -- not used as an input here
+ * @param resultArgs  -- Array, the last element is logger, from the node-function-buildpack's system function
+ * @return returnArgs -- array of arguments that will be passed to the next middleware function chain as the resultArgs(the 3rd argument)
  *                  OR
  *                  as the input argument to user functions if this is the last middleware function
  */
 export default function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): Array<any> {
-    //validate the input request
+    // Validate the input request
     if (!request) {
         throw new Error('Request Data not provided');
     }
@@ -77,8 +193,6 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
         throw new Error('Context not provided in data');
     }
 
-    const userFxPayload = data.payload;
-
     // Not all functions will require an accessToken used for org access.
     // The accessToken will not be passed directly to functions, but instead
     // passed as part of SFContext used in SF middleware to setup API instances.
@@ -91,135 +205,24 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
         delete data.sfContext;
     }
 
-    // logger is the last element in the array
+    // Logger is the last element in the array
     const logger: Logger = resultArgs[resultArgs.length-1];
     if (!logger) {
       throw new Error('Logger not provided in resultArgs from node system function');
     }
 
-    //construct the sdk context, send it to the user function
-    //the logger has been inited in the system function of the node function buildpack, is passed in as an attribute on the resultArgs
-    const sdkContext = createSdkContext(data.context,
-                                        logger,
-                                        accessToken, 
-                                        functionInvocationId);
-    return [userFxPayload, sdkContext, logger];
-}
+    // Construct event contain custom payload and details about the function request
+    const event = createEvent(data.payload, request.headers, request.payload);
 
-/**
- * construct sdk Context using the following input params
- * 
- * @param reqContext - reqContext from the request, contains salesforce stuff (user reqContext, etc)
- * @param accessToken 
- * @param functionInvocationId 
- */
-function createSdkContext(reqContext: any, logger: Logger, accessToken?: string, functionInvocationId?: string): SdkContext {
-    if (!reqContext) {
-        throw new Error('Context not provided.');
-    }
+    // Construct invocation context, send it to the user function.
+    // The logger has been init'ed in the system function of the node
+    // function buildpack, is passed in as an attribute on the resultArgs
+    const context = createContext(request.payload.id,
+                                  logger,
+                                  data.context,
+                                  accessToken,
+                                  functionInvocationId);
 
-    if (typeof reqContext === 'string') {
-        reqContext = JSON.parse(reqContext);
-    }
-
-    const userCtx = createSdkUserContext(reqContext);
-    const apiVersion = reqContext.apiVersion || process.env.FX_API_VERSION || Constants.CURRENT_API_VERSION;
-
-    // If accessToken was provided, setup APIs.
-    let forceApi: ForceApi;
-    let unitOfWork: UnitOfWork;
-    let fxInvocation: FunctionInvocationRequest;
-    if (accessToken) {
-        const config: ConnectionConfig = new ConnectionConfig(
-            accessToken,
-            apiVersion,
-            userCtx.salesforceBaseUrl
-        );
-        unitOfWork = new UnitOfWork(config, logger);
-        forceApi = new ForceApi(config, logger);
-    }
-
-    let initedSdkContext: SdkContext = new SdkContext(apiVersion,
-                                                      userCtx,
-                                                      logger,
-                                                      forceApi,
-                                                      unitOfWork);
-
-    // if functionInvocationId is set,
-    // dynamically set "fxInvocation" object as common code
-    if (accessToken && functionInvocationId) {
-        fxInvocation = new FunctionInvocationRequest(functionInvocationId, logger, forceApi);
-        initedSdkContext['fxInvocation'] = fxInvocation;
-    }
-    return initedSdkContext;
-}
-
-/**
- * Construct sdk UserContext object from the request context
- * 
- * @param reqContext 
- */
-function createSdkUserContext(reqContext: any): SdkUserContext {
-  const userContext = reqContext.userContext;
-  if (!userContext) {
-      const message = `UserContext not provided: ${JSON.stringify(reqContext)}`;
-      throw new Error(message);
-  }
-
-  return new SdkUserContext(
-      userContext.orgDomainUrl,
-      userContext.orgId,
-      userContext.salesforceBaseUrl,
-      userContext.username,
-      userContext.userId,
-      userContext.onBehalfOfUserId
-  );
-}
-
-// TODO: Remove when FunctionInvocationRequest is deprecated.
-class FunctionInvocationRequest {
-  public response: any;
-  public status: string;
-
-  constructor(public readonly id: string, 
-              private readonly logger: Logger, 
-              private readonly forceApi?: ForceApi) {
-  }
-
-  /**
-   * Saves FunctionInvocationRequest
-   *
-   * @throws err if response not provided or on failed save
-   */
-  public async save(): Promise<any> {
-      if (!this.response) {
-          throw new Error('Response not provided');
-      }
-
-      if (this.forceApi) {
-          const responseBase64 = Buffer.from(JSON.stringify(this.response)).toString('base64');
-
-          try {
-              // Prime pump (W-6841389)
-              const soql = `SELECT Id, FunctionName, Status, CreatedById, CreatedDate FROM FunctionInvocationRequest WHERE Id ='${this.id}'`;
-              await this.forceApi.query(soql);
-          } catch (err) {
-              this.logger.warn(err.message);
-          }
-
-          const fxInvocation = new SObject('FunctionInvocationRequest').withId(this.id);
-          fxInvocation.setValue('ResponseBody', responseBase64);
-          const result: SuccessResult | ErrorResult = await this.forceApi.update(fxInvocation);
-          if (!result.success && 'errors' in result) {
-              // Tells tsc that 'errors' exist and join below is okay
-              const msg = `Failed to send response [${this.id}]: ${result.errors.join(',')}`;
-              this.logger.error(msg);
-              throw new Error(msg);
-          } else {
-              return result;
-          }
-      } else {
-          throw new Error('Authorization not provided');
-      }
-  }
+    // Function params
+    return [event, context, logger];
 }

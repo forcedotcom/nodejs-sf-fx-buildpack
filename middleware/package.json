@@ -12,6 +12,7 @@
     "lint": "tslint -c tslint.json './*.ts' 'src/**/*.ts'",
     "start": "node dist/index",
     "test": "nyc --extension .ts mocha --forbid-only -r ts-node/register 'test/unit/**/*.ts'",
+    "test-debug": "nyc --extension .ts mocha --inspect-brk=9229 --forbid-only -r ts-node/register 'test/unit/**/*.ts'",
     "watch-node": "nodemon dist/index.js",
     "watch": "tsc -w"
   },
@@ -25,7 +26,7 @@
   },
   "author": "TODO",
   "dependencies": {
-    "@salesforce/salesforce-sdk": "0.0.1-develop.12",
+    "@salesforce/salesforce-sdk": "1.0.0",
     "tslib": "1.9.3"
   },
   "devDependencies": {

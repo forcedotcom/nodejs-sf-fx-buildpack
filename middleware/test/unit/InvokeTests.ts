@@ -2,14 +2,15 @@
 import { assert, expect, use } from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import 'mocha';
-import * as sinon from 'sinon';
 import * as request from 'request-promise-native';
+import * as sinon from 'sinon';
 
 use(chaiAsPromised);
 
-import { Context, UserContext } from '@salesforce/salesforce-sdk';
-import {generateData, FakeFunction, generateRawMiddleWareRequest} from './FunctionTestUtils';
 import applySfFxMiddleware from '../../index';
+import { Context, Logger, Org, User } from '@salesforce/salesforce-sdk';
+import { FakeFunction, generateData, generateRawMiddleWareRequest} from './FunctionTestUtils';
+
 
 interface PdfEvent {
     html?: string,
@@ -23,6 +24,8 @@ interface PdfEvent {
         headless?: boolean, /* allow for testing purposes */
     }
 }
+
+const LOGGER = new Logger({name: 'test', level: 100});
 
 //   T E S T S
 
@@ -67,27 +70,28 @@ describe('Invoke Function Tests', () => {
         expect(data.sfContext).to.exist;
 
         // cloudevent generated above
-        // Until middleware is in place, context passed to function is not provide 
-        const middlewareResult = applySfFxMiddleware(rawRequest, {}, {});
+        // Until middleware is in place, context passed to function is not provide
+        const middlewareResult = applySfFxMiddleware(rawRequest, {}, [LOGGER]);
         expect(middlewareResult).to.exist;
 
         const event = middlewareResult[0];
         expect(event).to.exist;
-        expect(event.url).to.exist;
-        expect(event.sfContext).to.not.exist;
+        expect(event.data).to.exist;
+        expect(event.data.url).to.exist;
+        expect(event.data.sfContext).to.not.exist;
 
         const context = middlewareResult[1];
         expect(context).to.exist;
-        expect(context.userContext).to.exist;
-        expect(context.payloadVersion).to.exist;
+        expect(context.org).to.exist;
+        expect(context.org.user).to.exist;
         expect(context.logger).to.exist;
-        expect(context.forceApi).to.exist;
-        expect(context.unitOfWork).to.exist;
+        expect(context.org.data).to.exist;
+        expect(context.org.unitOfWork).to.exist;
         expect(context.fxInvocation).to.exist;
     });
 
     it('should invoke function', async () => {
-        const transformedParams = applySfFxMiddleware(rawRequest, {}, {});
+        const transformedParams = applySfFxMiddleware(rawRequest, {}, [LOGGER]);
         const event = transformedParams[0];
         const context = transformedParams[1];
 
@@ -100,13 +104,15 @@ describe('Invoke Function Tests', () => {
         const paramContext: Context = fakeFx.invokeParams.context;
 
         expect(context.fxInvocation.id).to.equal(paramContext['fxInvocation'].id);
-        const userContext: UserContext = fakeFx.invokeParams.context.userContext;
-        expect(context.userContext.orgId).to.equal(userContext.orgId);
+        const org: Org = fakeFx.invokeParams.context.org;
+        expect(context.org.id).to.equal(org.id);
+        const user: User = fakeFx.invokeParams.context.org.user;
+        expect(context.org.user.id).to.equal(user.id);
         return Promise.resolve(null);
     });
 
     it('should have payload', async () => {
-        const transformedParams = applySfFxMiddleware(rawRequest, {}, {});
+        const transformedParams = applySfFxMiddleware(rawRequest, {}, [LOGGER]);
         const event = transformedParams[0];
         const context = transformedParams[1];
 
@@ -124,16 +130,16 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should handle FunctionInvocation', async () => {
-        const transformedParams = applySfFxMiddleware(rawRequest, {}, {});
+        const transformedParams = applySfFxMiddleware(rawRequest, {}, [LOGGER]);
         const event = transformedParams[0];
         const context = transformedParams[1];
 
-        const updateStub = sandbox.stub(context.forceApi, 'update');
+        const updateStub = sandbox.stub(context.org.data, 'update');
         updateStub.callsFake((): Promise<any> => {
             return Promise.resolve({ success: true });
         });
 
-        const queryStub = sandbox.stub(context.forceApi, 'query');
+        const queryStub = sandbox.stub(context.org.data, 'query');
 
         // Create and invoke function
         const fakeFx: FakeFunction = newFakeFx(true);
