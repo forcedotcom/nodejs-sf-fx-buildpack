@@ -14,7 +14,6 @@ import {
     UnitOfWork,
     User,
 } from '@salesforce/salesforce-sdk'
-import {stringify} from 'querystring'
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
