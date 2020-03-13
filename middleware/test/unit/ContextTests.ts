@@ -137,13 +137,36 @@ describe('Context Tests', () => {
         expect(context.org.apiVersion).to.equal('0.0');
     });
 
-    it('should FAIL to create Context', () => {
-        try {
-            // Expecting missing data.context
-            getContext({});
-            expect.fail();
-        } catch (err) {
-            expect(err.message).to.contain('Context not provided in data');
-        }
+    it('should not create Context.org WITHOUT data.context', () => {
+        const context: Context = getContext({"payload":{}});
+
+        expect(context.org).to.not.exist;
+        expect(context['fxInvocation']).to.not.exist;
+    });
+
+
+    it('expect custom payload data not available', () => {
+        const data = {"someproperty":"whatever"};
+        const rawRequest = generateRawMiddleWareRequest(data);
+        const logger = new Logger('Evergreen Logger Context Unit Test');
+        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+
+        expect(mwResult).to.be.an('array');
+        expect(mwResult).to.have.lengthOf(3);
+        expect(mwResult[0]).to.exist;
+        expect(mwResult[1]).to.exist;
+        expect(mwResult[2]).to.exist;
+
+        const event = mwResult[0];
+        expect(event.id).to.not.be.undefined;
+        expect(event.type).to.not.be.undefined;
+        expect(event.source).to.not.be.undefined;
+        expect(event.dataContentType).to.not.be.undefined;
+        expect(event.dataSchema).to.not.be.undefined;
+        expect(event.data).to.be.undefined;
+        expect(event.headers).to.not.be.undefined;
+
+        const context: Context = mwResult[1] as Context;
+        expect(context.org).to.not.exist;
     });
 });

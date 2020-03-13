@@ -1,4 +1,5 @@
-
+import * as fs from 'fs';
+import {LoggerLevel} from '@salesforce/core'
 import {
     ConnectionConfig,
     Constants,
@@ -12,8 +13,8 @@ import {
     SuccessResult,
     UnitOfWork,
     User,
-} from '@salesforce/salesforce-sdk';
-
+} from '@salesforce/salesforce-sdk'
+import {stringify} from 'querystring'
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
@@ -109,7 +110,7 @@ function createUser(userContext: any): User {
  * @param reqContext
  * @return org
  */
-function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
+function createorg(logger: Logger, reqContext: any, accessToken?: string): Org {
     const userContext = reqContext.userContext;
     if (!userContext) {
         const message = `UserContext not provided: ${JSON.stringify(reqContext)}`;
@@ -151,12 +152,12 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
  * @param functionInvocationId -- FunctionInvocationRequest ID, if applicable
  * @return context
  */
-function createContext(id: string, logger: Logger, reqContext: any, accessToken?: string, functionInvocationId?: string): Context {
-    if (typeof reqContext === 'string') {
+function createContext(id: string, logger: Logger, reqContext?: any, accessToken?: string, functionInvocationId?: string): Context {
+    if (reqContext && typeof reqContext === 'string') {
         reqContext = JSON.parse(reqContext);
     }
 
-    const org = createOrg(logger, reqContext, accessToken);
+    const org = reqContext ? createorg(logger, reqContext!, accessToken) : undefined;
     const context = new Context(id, logger, org);
 
     // If functionInvocationId is provided, create and set FunctionInvocationRequest object
@@ -166,6 +167,22 @@ function createContext(id: string, logger: Logger, reqContext: any, accessToken?
         context['fxInvocation'] = fxInvocation;
     }
     return context;
+}
+
+/**
+ * TODO: replace this with salesforce-sdk api call to get secret
+ * @param name
+ * @param key
+ * @param logger
+ */
+function getSecret(name, key, logger: Logger) : string {
+    try {
+        let data = fs.readFileSync(`/platform/services/${name}/secret/${key}`);
+        return data.toString();
+    } catch(err) {
+        logger.info(`Failed to read secret name "${name}" key "${key}": ${err.stack}`);
+        return null;
+    }
 }
 
 /**
@@ -184,13 +201,29 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
         throw new Error('Request Data not provided');
     }
 
+    // Logger is the last element in the array
+    const logger: Logger = resultArgs[resultArgs.length-1];
+    if (!logger) {
+        throw new Error('Logger not provided in resultArgs from node system function');
+    }
+
+    //use secret her in lieu of DEBUG runtime environment var until we haave deployment time support of config var
+    const debugSecret = getSecret("sf-debug", "DEBUG", logger);
+    logger.info(`DEBUG flag is ${debugSecret}`);
+    if(debugSecret || LoggerLevel.DEBUG === logger.getLevel() || process.env.DEBUG) {
+        //for dev preview, we log the ENTIRE raw request, may need to filter sensitive properties out later
+        //the hard part of filtering to know which name to filter
+        let childLogger: Logger = logger.child('raw_request', request);
+        childLogger.info('debug raw request in middleware');
+    }
+
     const data = request.payload.data;
     if (!data) {
-        throw new Error('Data not provided');
+        throw new Error('Data field of the cloudEvent not provided in the request');
     }
 
     if (!data.context) {
-        throw new Error('Context not provided in data');
+        logger.warn('Context not provided in data, context.org is not initialized');
     }
 
     // Not all functions will require an accessToken used for org access.
@@ -203,12 +236,6 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
         functionInvocationId = data.sfContext.functionInvocationId || undefined;
         // Internal only
         delete data.sfContext;
-    }
-
-    // Logger is the last element in the array
-    const logger: Logger = resultArgs[resultArgs.length-1];
-    if (!logger) {
-      throw new Error('Logger not provided in resultArgs from node system function');
     }
 
     // Construct event contain custom payload and details about the function request
