@@ -1,15 +1,26 @@
 /* tslint:disable: no-unused-expression */
-import { expect } from 'chai';
+import {LoggerLevel} from '@salesforce/core';
+import {ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk';
+import {expect} from 'chai';
+import * as fs from 'fs';
 import 'mocha';
+import * as sinon from 'sinon';
 
 import applySfFxMiddleware from '../../index';
-import { ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk';
-import { generateData, generateRawMiddleWareRequest } from './FunctionTestUtils';
-
+import {generateData, generateRawMiddleWareRequest} from './FunctionTestUtils';
 
 describe('Context Tests', () => {
+    let sandbox: sinon.SinonSandbox;
 
-    const validateContext = (data: any, context: Context, hasOnBehalfOfUserId: boolean = false) => {
+    beforeEach(() => {
+        sandbox = sinon.createSandbox();
+    });
+
+    afterEach(() => {
+        sandbox.restore();
+    });
+
+    const validateContext = (data: any, context: Context, hasOnBehalfOfUserId = false) => {
         expect(context.org.apiVersion).to.exist;
         expect(context.org.apiVersion).to.equal(Constants.CURRENT_API_VERSION);
 
@@ -130,20 +141,84 @@ describe('Context Tests', () => {
         const data = generateData(true);
         expect(data.context).to.exist;
         expect(data.context.apiVersion).to.exist;
-        data.context.apiVersion = '0.0'
+        data.context.apiVersion = '0.0';
 
         const context: Context = getContext(data);
         expect(context.org.apiVersion).to.exist;
         expect(context.org.apiVersion).to.equal('0.0');
     });
 
-    it('should FAIL to create Context', () => {
-        try {
-            // Expecting missing data.context
-            getContext({});
-            expect.fail();
-        } catch (err) {
-            expect(err.message).to.contain('Context not provided in data');
-        }
+    it('should not create Context.org WITHOUT data.context', () => {
+        const context: Context = getContext({"payload":{}});
+
+        expect(context.org).to.not.exist;
+        expect(context['fxInvocation']).to.not.exist;
+    });
+
+    it('test logger DEBUG level when secret is set', () =>{
+        const sname = 'sf-debug';
+        const key = 'DEBUG';
+        sandbox.stub(fs, 'readFileSync')
+          .withArgs(`/platform/services/${sname}/secret/${key}`)
+          .returns('1');
+
+        const data = generateData(true);
+        expect(data.context).to.exist;
+
+        const rawRequest = generateRawMiddleWareRequest(data);
+        const logger = new Logger('Evergreen Logger Context Unit Test');
+        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+        validateApplyMiddleWareResult(data, mwResult);
+
+        const context: Context = mwResult[1] as Context;
+        validateContext(data, context);
+
+        expect(logger.getLevel() === LoggerLevel.DEBUG).to.be.true;
+    });
+
+    it('test logger not DEBUG level when secret not set', () =>{
+        const sname = 'sf-debug';
+        const key = 'DEBUG';
+        sandbox.stub(fs, 'readFileSync')
+          .withArgs(`/platform/services/${sname}/secret/${key}`)
+          .returns(null);
+
+        const data = generateData(true);
+        expect(data.context).to.exist;
+
+        const rawRequest = generateRawMiddleWareRequest(data);
+        const logger = new Logger('Evergreen Logger Context Unit Test');
+        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+        validateApplyMiddleWareResult(data, mwResult);
+
+        const context: Context = mwResult[1] as Context;
+        validateContext(data, context);
+
+        expect(logger.getLevel() === LoggerLevel.DEBUG).to.be.false;
+    });
+
+    it('expect custom payload data not available', () => {
+        const data = {"someproperty":"whatever"};
+        const rawRequest = generateRawMiddleWareRequest(data);
+        const logger = new Logger('Evergreen Logger Context Unit Test');
+        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+
+        expect(mwResult).to.be.an('array');
+        expect(mwResult).to.have.lengthOf(3);
+        expect(mwResult[0]).to.exist;
+        expect(mwResult[1]).to.exist;
+        expect(mwResult[2]).to.exist;
+
+        const event = mwResult[0];
+        expect(event.id).to.not.be.undefined;
+        expect(event.type).to.not.be.undefined;
+        expect(event.source).to.not.be.undefined;
+        expect(event.dataContentType).to.not.be.undefined;
+        expect(event.dataSchema).to.not.be.undefined;
+        expect(event.data).to.be.undefined;
+        expect(event.headers).to.not.be.undefined;
+
+        const context: Context = mwResult[1] as Context;
+        expect(context.org).to.not.exist;
     });
 });

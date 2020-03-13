@@ -38,7 +38,7 @@ describe('Invoke Function Tests', () => {
     let sandbox: sinon.SinonSandbox;
     let mockRequestPost;
 
-    const newFakeFx = (doFxInvocation: boolean = false): FakeFunction => {
+    const newFakeFx = (doFxInvocation = false): FakeFunction => {
         return new FakeFunction(sandbox, doFxInvocation);
     };
 
