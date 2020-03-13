@@ -1,13 +1,13 @@
 /* tslint:disable: no-unused-expression */
-import {LoggerLevel} from '@salesforce/core'
-import {ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk'
-import {expect} from 'chai'
-import * as fs from 'fs'
-import 'mocha'
-import * as sinon from 'sinon'
+import {LoggerLevel} from '@salesforce/core';
+import {ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk';
+import {expect} from 'chai';
+import * as fs from 'fs';
+import 'mocha';
+import * as sinon from 'sinon';
 
-import applySfFxMiddleware from '../../index'
-import {generateData, generateRawMiddleWareRequest} from './FunctionTestUtils'
+import applySfFxMiddleware from '../../index';
+import {generateData, generateRawMiddleWareRequest} from './FunctionTestUtils';
 
 describe('Context Tests', () => {
     let sandbox: sinon.SinonSandbox;
@@ -20,7 +20,7 @@ describe('Context Tests', () => {
         sandbox.restore();
     });
 
-    const validateContext = (data: any, context: Context, hasOnBehalfOfUserId: boolean = false) => {
+    const validateContext = (data: any, context: Context, hasOnBehalfOfUserId = false) => {
         expect(context.org.apiVersion).to.exist;
         expect(context.org.apiVersion).to.equal(Constants.CURRENT_API_VERSION);
 
@@ -141,7 +141,7 @@ describe('Context Tests', () => {
         const data = generateData(true);
         expect(data.context).to.exist;
         expect(data.context.apiVersion).to.exist;
-        data.context.apiVersion = '0.0'
+        data.context.apiVersion = '0.0';
 
         const context: Context = getContext(data);
         expect(context.org.apiVersion).to.exist;

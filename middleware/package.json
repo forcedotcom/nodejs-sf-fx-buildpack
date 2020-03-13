@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "node_modules/typescript/bin/tsc -p .",
-    "lint": "eslint './*.ts' --ext .ts",
+    "lint": "eslint './*.ts' 'test/**/*.ts' --ext .ts",
     "start": "node dist/index",
     "test": "nyc --extension .ts mocha --forbid-only -r ts-node/register 'test/unit/**/*.ts'",
     "test-debug": "nyc --extension .ts mocha --inspect-brk=9229 --forbid-only -r ts-node/register 'test/unit/**/*.ts'",

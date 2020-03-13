@@ -1,14 +1,14 @@
 import { Context, Org, User } from '@salesforce/salesforce-sdk';
 import * as sinon from 'sinon';
 
-export const generateData = (setAccessToken: boolean = true, setOnBehalfOfUserId: boolean = false): any => {
+export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false): any => {
     const userContext = {
         orgDomainUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
         orgId:'00Dxx0000006GoF',
         salesforceBaseUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
         userId:'005xx000001X7dl',
         username:'chris@sffx.org'
-    }
+    };
 
     if (setOnBehalfOfUserId) {
         // Workaround readonly prop
@@ -20,7 +20,7 @@ export const generateData = (setAccessToken: boolean = true, setOnBehalfOfUserId
         functionName: 'salesforce/functions/hello',
         requestId: '4SROyqmXwNJ3M40_wnZB1k',
         resource: 'http://...'
-    }
+    };
 
     if (setAccessToken) {
         sfContext['accessToken'] = `${userContext.orgId}!sdfssfdss`;
@@ -43,7 +43,7 @@ export const generateData = (setAccessToken: boolean = true, setOnBehalfOfUserId
     };
 
     return data;
-}
+};
 
 export const generateCloudevent = (data: any): any => {
     return {
@@ -55,8 +55,8 @@ export const generateCloudevent = (data: any): any => {
         time: '2019-11-14T18:13:45.627813Z',
         specVersion: '0.2',
         data
-    }
-}
+    };
+};
 
 export const generateRawMiddleWareRequest = (data: any): any => {
     const cloudEvent: any = generateCloudevent(data);
@@ -67,8 +67,8 @@ export const generateRawMiddleWareRequest = (data: any): any => {
     return {
         headers: rawheaders,
         payload: cloudEvent
-    }
-}
+    };
+};
 
 export class FakeFunction {
 
@@ -94,4 +94,4 @@ export class FakeFunction {
 
         return Promise.resolve(null);
     }
-};
+}
