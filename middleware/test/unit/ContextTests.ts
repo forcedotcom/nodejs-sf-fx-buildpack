@@ -1,13 +1,24 @@
 /* tslint:disable: no-unused-expression */
-import { expect } from 'chai';
-import 'mocha';
+import {LoggerLevel} from '@salesforce/core'
+import {ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk'
+import {expect} from 'chai'
+import * as fs from 'fs'
+import 'mocha'
+import * as sinon from 'sinon'
 
-import applySfFxMiddleware from '../../index';
-import { ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk';
-import { generateData, generateRawMiddleWareRequest } from './FunctionTestUtils';
-
+import applySfFxMiddleware from '../../index'
+import {generateData, generateRawMiddleWareRequest} from './FunctionTestUtils'
 
 describe('Context Tests', () => {
+    let sandbox: sinon.SinonSandbox;
+
+    beforeEach(() => {
+        sandbox = sinon.createSandbox();
+    });
+
+    afterEach(() => {
+        sandbox.restore();
+    });
 
     const validateContext = (data: any, context: Context, hasOnBehalfOfUserId: boolean = false) => {
         expect(context.org.apiVersion).to.exist;
@@ -144,6 +155,47 @@ describe('Context Tests', () => {
         expect(context['fxInvocation']).to.not.exist;
     });
 
+    it('test logger DEBUG level when secret is set', () =>{
+        const sname = 'sf-debug';
+        const key = 'DEBUG';
+        sandbox.stub(fs, 'readFileSync')
+          .withArgs(`/platform/services/${sname}/secret/${key}`)
+          .returns('1');
+
+        const data = generateData(true);
+        expect(data.context).to.exist;
+
+        const rawRequest = generateRawMiddleWareRequest(data);
+        const logger = new Logger('Evergreen Logger Context Unit Test');
+        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+        validateApplyMiddleWareResult(data, mwResult);
+
+        const context: Context = mwResult[1] as Context;
+        validateContext(data, context);
+
+        expect(logger.getLevel() === LoggerLevel.DEBUG).to.be.true;
+    });
+
+    it('test logger not DEBUG level when secret not set', () =>{
+        const sname = 'sf-debug';
+        const key = 'DEBUG';
+        sandbox.stub(fs, 'readFileSync')
+          .withArgs(`/platform/services/${sname}/secret/${key}`)
+          .returns(null);
+
+        const data = generateData(true);
+        expect(data.context).to.exist;
+
+        const rawRequest = generateRawMiddleWareRequest(data);
+        const logger = new Logger('Evergreen Logger Context Unit Test');
+        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+        validateApplyMiddleWareResult(data, mwResult);
+
+        const context: Context = mwResult[1] as Context;
+        validateContext(data, context);
+
+        expect(logger.getLevel() === LoggerLevel.DEBUG).to.be.false;
+    });
 
     it('expect custom payload data not available', () => {
         const data = {"someproperty":"whatever"};

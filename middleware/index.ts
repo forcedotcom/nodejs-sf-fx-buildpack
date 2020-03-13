@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import * as fs from 'fs'
 import {LoggerLevel} from '@salesforce/core'
 import {
     ConnectionConfig,
@@ -109,7 +109,7 @@ function createUser(userContext: any): User {
  * @param reqContext
  * @return org
  */
-function createorg(logger: Logger, reqContext: any, accessToken?: string): Org {
+function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
     const userContext = reqContext.userContext;
     if (!userContext) {
         const message = `UserContext not provided: ${JSON.stringify(reqContext)}`;
@@ -152,11 +152,11 @@ function createorg(logger: Logger, reqContext: any, accessToken?: string): Org {
  * @return context
  */
 function createContext(id: string, logger: Logger, reqContext?: any, accessToken?: string, functionInvocationId?: string): Context {
-    if (reqContext && typeof reqContext === 'string') {
+    if (typeof reqContext === 'string') {
         reqContext = JSON.parse(reqContext);
     }
 
-    const org = reqContext ? createorg(logger, reqContext!, accessToken) : undefined;
+    const org = reqContext ? createOrg(logger, reqContext!, accessToken) : undefined;
     const context = new Context(id, logger, org);
 
     // If functionInvocationId is provided, create and set FunctionInvocationRequest object
@@ -174,12 +174,12 @@ function createContext(id: string, logger: Logger, reqContext?: any, accessToken
  * @param key
  * @param logger
  */
-function getSecret(name, key, logger: Logger) : string {
+function getSecret(name: string, key: string, logger: Logger) : string {
     try {
         let data = fs.readFileSync(`/platform/services/${name}/secret/${key}`);
-        return data.toString();
+        return data ? data.toString() : null;
     } catch(err) {
-        logger.info(`Failed to read secret name "${name}" key "${key}": ${err.stack}`);
+        logger.info(`Failed to read secret name "${name}" key "${key}"`);
         return null;
     }
 }
@@ -206,14 +206,16 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
         throw new Error('Logger not provided in resultArgs from node system function');
     }
 
-    //use secret her in lieu of DEBUG runtime environment var until we haave deployment time support of config var
+    //use secret here in lieu of DEBUG runtime environment var until we have deployment time support of config var
     const debugSecret = getSecret("sf-debug", "DEBUG", logger);
     logger.info(`DEBUG flag is ${debugSecret}`);
     if(debugSecret || LoggerLevel.DEBUG === logger.getLevel() || process.env.DEBUG) {
         //for dev preview, we log the ENTIRE raw request, may need to filter sensitive properties out later
-        //the hard part of filtering to know which name to filter
-        let childLogger: Logger = logger.child('raw_request', request);
-        childLogger.info('debug raw request in middleware');
+        //the hard part of filtering is to know which property name to filter
+        //change the logger level, so any subsequent user function's logger.debug would log as well
+        logger.setLevel(LoggerLevel.DEBUG);
+        logger.debug('debug raw request in middleware');
+        logger.debug(request);
     }
 
     const data = request.payload.data;
@@ -222,7 +224,7 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
     }
 
     if (!data.context) {
-        logger.warn('Context not provided in data, context.org is not initialized');
+        logger.warn('Context not provided in data: context is partially initialize');
     }
 
     // Not all functions will require an accessToken used for org access.
