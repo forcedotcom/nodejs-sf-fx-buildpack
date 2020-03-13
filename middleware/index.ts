@@ -1,5 +1,5 @@
-import * as fs from 'fs'
-import {LoggerLevel} from '@salesforce/core'
+import * as fs from 'fs';
+import {LoggerLevel} from '@salesforce/core';
 import {
     ConnectionConfig,
     Constants,
@@ -13,7 +13,7 @@ import {
     SuccessResult,
     UnitOfWork,
     User,
-} from '@salesforce/salesforce-sdk'
+} from '@salesforce/salesforce-sdk';
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
@@ -63,6 +63,11 @@ class FunctionInvocationRequest {
   }
 }
 
+function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<string>> {
+    const headersMap: Map<string, ReadonlyArray<string>> = new Map(Object.entries(headers));
+    return headersMap;
+}
+
 /**
  * Construct Event from invocation request.
  *
@@ -82,11 +87,6 @@ function createEvent(data: any, headers: any, payload: any): InvocationEvent {
         payload.type,
         headersToMap(headers)
     );
-}
-
-function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<string>> {
-    const headersMap: Map<string, ReadonlyArray<string>> = new Map(Object.entries(headers));
-    return headersMap;
 }
 
 /**
@@ -176,7 +176,7 @@ function createContext(id: string, logger: Logger, reqContext?: any, accessToken
  */
 function getSecret(name: string, key: string, logger: Logger) : string {
     try {
-        let data = fs.readFileSync(`/platform/services/${name}/secret/${key}`);
+        const data = fs.readFileSync(`/platform/services/${name}/secret/${key}`);
         return data ? data.toString() : null;
     } catch(err) {
         logger.info(`Failed to read secret name "${name}" key "${key}"`);

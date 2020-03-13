@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "node_modules/typescript/bin/tsc -p .",
-    "lint": "tslint -c tslint.json './*.ts' 'src/**/*.ts'",
+    "lint": "eslint './*.ts' --ext .ts",
     "start": "node dist/index",
     "test": "nyc --extension .ts mocha --forbid-only -r ts-node/register 'test/unit/**/*.ts'",
     "test-debug": "nyc --extension .ts mocha --inspect-brk=9229 --forbid-only -r ts-node/register 'test/unit/**/*.ts'",
@@ -35,18 +35,20 @@
     "@types/mocha": "^5.2.5",
     "@types/node": "^10.12.18",
     "@types/sinon": "^7.0.4",
+    "@typescript-eslint/eslint-plugin": "^2.17.0",
+    "@typescript-eslint/parser": "^2.17.0",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
+    "eslint": "^6.8.0",
+    "eslint-config-prettier": "^6.9.0",
     "mocha": "^5.2.0",
     "nyc": "^14.1.1",
     "pre-commit": "^1.2.2",
+    "prettier": "^1.15.3",
     "request": "^2.88.0",
     "request-promise-native": "^1.0.7",
     "sinon": "^7.2.3",
     "ts-node": "7.0.0",
-    "tslint": "^5.12.1",
-    "tslint-config-prettier": "^1.17.0",
-    "tslint-plugin-prettier": "^2.0.1",
     "typescript": "3.2.2"
   }
 }
