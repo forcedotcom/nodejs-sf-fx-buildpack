@@ -9,6 +9,7 @@ import {
     InvocationEvent,
     Logger,
     Org,
+    Secrets,
     SObject,
     SuccessResult,
     UnitOfWork,
@@ -129,7 +130,6 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
 
     const apiVersion = reqContext.apiVersion || process.env.FX_API_VERSION || Constants.CURRENT_API_VERSION;
     const user = createUser(userContext);
-    const secrets = createSecrets(logger);
 
     // If accessToken was provided, setup APIs.
     let dataApi: DataApi | undefined;
@@ -151,8 +151,7 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
         userContext.orgId,
         user,
         dataApi,
-        unitOfWork,
-        secrets
+        unitOfWork
     );
 }
 
@@ -170,7 +169,8 @@ function createContext(id: string, logger: Logger, reqContext?: any, accessToken
     }
 
     const org = reqContext ? createOrg(logger, reqContext!, accessToken) : undefined;
-    const context = new Context(id, logger, org);
+    const secrets = createSecrets(logger);
+    const context = new Context(id, logger, org, secrets);
 
     // If functionInvocationId is provided, create and set FunctionInvocationRequest object
     let fxInvocation: FunctionInvocationRequest;
