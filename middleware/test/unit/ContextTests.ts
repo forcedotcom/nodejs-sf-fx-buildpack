@@ -30,6 +30,7 @@ describe('Context Tests', () => {
         expect(context.org.baseUrl).to.equal(data.context.userContext.salesforceBaseUrl);
         expect(context.org.user.username).to.equal(data.context.userContext.username);
         expect(context.org.user.id).to.equal(data.context.userContext.userId);
+        expect(context.secrets).to.exist;
 
         if (hasOnBehalfOfUserId) {
             expect(context.org.user.onBehalfOfUserId).to.equal(data.context.userContext.onBehalfOfUserId);
@@ -158,6 +159,20 @@ describe('Context Tests', () => {
     it('test logger DEBUG level when secret is set', () =>{
         const sname = 'sf-debug';
         const key = 'DEBUG';
+
+        // Stub out the fs calls made by Secrets
+        const fsStat = new fs.Stats();
+        sinon.stub(fsStat, 'isDirectory').returns(true);
+        sinon.stub(fsStat, 'isFile').returns(true);
+        sandbox.stub(fs, 'statSync')
+          .withArgs(`/platform/services/${sname}/secret`)
+          .returns(fsStat)
+          .withArgs(`/platform/services/${sname}/secret/${key}`)
+          .returns(fsStat);
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+        sandbox.stub(fs, <any>'readdirSync')
+          .withArgs(`/platform/services/${sname}/secret`)
+          .returns([key]);
         sandbox.stub(fs, 'readFileSync')
           .withArgs(`/platform/services/${sname}/secret/${key}`)
           .returns('1');

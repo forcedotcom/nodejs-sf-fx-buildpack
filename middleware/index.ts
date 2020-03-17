@@ -9,6 +9,7 @@ import {
     InvocationEvent,
     Logger,
     Org,
+    Secrets,
     SObject,
     SuccessResult,
     UnitOfWork,
@@ -104,6 +105,17 @@ function createUser(userContext: any): User {
 }
 
 /**
+ * Construct Secrets object with logger.
+ *
+ *
+ * @param logger -- logger to use in case of secret load errors
+ * @return secrets loader/cache
+ */
+function createSecrets(logger: Logger): Secrets {
+    return new Secrets(logger);
+}
+
+/**
  * Construct Org object from the request context.
  *
  * @param reqContext
@@ -157,7 +169,8 @@ function createContext(id: string, logger: Logger, reqContext?: any, accessToken
     }
 
     const org = reqContext ? createOrg(logger, reqContext!, accessToken) : undefined;
-    const context = new Context(id, logger, org);
+    const secrets = createSecrets(logger);
+    const context = new Context(id, logger, org, secrets);
 
     // If functionInvocationId is provided, create and set FunctionInvocationRequest object
     let fxInvocation: FunctionInvocationRequest;
@@ -169,19 +182,19 @@ function createContext(id: string, logger: Logger, reqContext?: any, accessToken
 }
 
 /**
- * TODO: replace this with salesforce-sdk api call to get secret
- * @param name
- * @param key
- * @param logger
+ * Load a single secret/key to check at startup.
+ *
+ * @param name -- secret name
+ * @param key -- key within secret to check
+ * @param logger -- to use to log secret load errors
+ * @return secret value if successfully loaded, undefined if not found/loaded.
  */
-function getSecret(name: string, key: string, logger: Logger) : string {
-    try {
-        const data = fs.readFileSync(`/platform/services/${name}/secret/${key}`);
-        return data ? data.toString() : null;
-    } catch(err) {
-        logger.info(`Failed to read secret name "${name}" key "${key}"`);
-        return null;
+function getSecret(name: string, key: string, logger: Logger) : string|undefined {
+    const secretMap = new Secrets(logger).get(name);
+    if (secretMap && key in secretMap) {
+        return secretMap[key];
     }
+    return undefined;
 }
 
 /**
