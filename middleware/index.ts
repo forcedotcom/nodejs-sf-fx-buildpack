@@ -158,18 +158,21 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
 /**
  * Construct Context from function payload.
  *
+ * @param id                   -- request payload id
+ * @param logger               -- logger
+ * @param secrets              -- secrets convenience class
  * @param reqContext           -- reqContext from the request, contains salesforce stuff (user reqContext, etc)
  * @param accessToken          -- accessToken for function org access, if provided
  * @param functionInvocationId -- FunctionInvocationRequest ID, if applicable
  * @return context
  */
-function createContext(id: string, logger: Logger, reqContext?: any, accessToken?: string, functionInvocationId?: string): Context {
+function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?: any,
+                       accessToken?: string, functionInvocationId?: string): Context {
     if (typeof reqContext === 'string') {
         reqContext = JSON.parse(reqContext);
     }
 
     const org = reqContext ? createOrg(logger, reqContext!, accessToken) : undefined;
-    const secrets = createSecrets(logger);
     const context = new Context(id, logger, org, secrets);
 
     // If functionInvocationId is provided, create and set FunctionInvocationRequest object
@@ -179,22 +182,6 @@ function createContext(id: string, logger: Logger, reqContext?: any, accessToken
         context['fxInvocation'] = fxInvocation;
     }
     return context;
-}
-
-/**
- * Load a single secret/key to check at startup.
- *
- * @param name -- secret name
- * @param key -- key within secret to check
- * @param logger -- to use to log secret load errors
- * @return secret value if successfully loaded, undefined if not found/loaded.
- */
-function getSecret(name: string, key: string, logger: Logger) : string|undefined {
-    const secretMap = new Secrets(logger).get(name);
-    if (secretMap && key in secretMap) {
-        return secretMap[key];
-    }
-    return undefined;
 }
 
 /**
@@ -220,8 +207,9 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
     }
 
     //use secret here in lieu of DEBUG runtime environment var until we have deployment time support of config var
-    const debugSecret = getSecret("sf-debug", "DEBUG", logger);
-    logger.info(`DEBUG flag is ${debugSecret}`);
+    const secrets = createSecrets(logger);
+    const debugSecret = secrets.getValue("sf-debug", "DEBUG");
+    logger.info(`DEBUG flag is ${debugSecret ? debugSecret : 'unset'}`);
     if(debugSecret || LoggerLevel.DEBUG === logger.getLevel() || process.env.DEBUG) {
         //for dev preview, we log the ENTIRE raw request, may need to filter sensitive properties out later
         //the hard part of filtering is to know which property name to filter
@@ -260,6 +248,7 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
     // function buildpack, is passed in as an attribute on the resultArgs
     const context = createContext(request.payload.id,
                                   logger,
+                                  secrets,
                                   data.context,
                                   accessToken,
                                   functionInvocationId);
