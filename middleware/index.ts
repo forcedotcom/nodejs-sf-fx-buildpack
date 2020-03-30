@@ -158,7 +158,7 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
 /**
  * Construct Context from function payload.
  *
- * @param id                   -- invocation id
+ * @param id                   -- request payload id
  * @param logger               -- logger
  * @param secrets              -- secrets convenience class
  * @param reqContext           -- reqContext from the request, contains salesforce stuff (user reqContext, etc)
