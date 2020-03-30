@@ -190,11 +190,7 @@ function createContext(id: string, logger: Logger, reqContext?: any, accessToken
  * @return secret value if successfully loaded, undefined if not found/loaded.
  */
 function getSecret(name: string, key: string, logger: Logger) : string|undefined {
-    const secretMap = new Secrets(logger).get(name);
-    if (secretMap && key in secretMap) {
-        return secretMap[key];
-    }
-    return undefined;
+    return new Secrets(logger).getValue(name, key);
 }
 
 /**
@@ -221,14 +217,16 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
 
     //use secret here in lieu of DEBUG runtime environment var until we have deployment time support of config var
     const debugSecret = getSecret("sf-debug", "DEBUG", logger);
-    logger.info(`DEBUG flag is ${debugSecret}`);
     if(debugSecret || LoggerLevel.DEBUG === logger.getLevel() || process.env.DEBUG) {
+        logger.info(`DEBUG flag is ${debugSecret}`);
         //for dev preview, we log the ENTIRE raw request, may need to filter sensitive properties out later
         //the hard part of filtering is to know which property name to filter
         //change the logger level, so any subsequent user function's logger.debug would log as well
         logger.setLevel(LoggerLevel.DEBUG);
         logger.debug('debug raw request in middleware');
         logger.debug(request);
+    } else {
+        logger.info('DEBUG flag is off');
     }
 
     const data = request.payload.data;
