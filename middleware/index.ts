@@ -1,20 +1,22 @@
 import * as fs from 'fs';
-import {LoggerLevel} from '@salesforce/core';
+import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
+import {SObject} from '@salesforce/salesforce-sdk/dist/objects';
+import {Constants} from '@salesforce/salesforce-sdk/dist/index';
 import {
     ConnectionConfig,
-    Constants,
-    Context,
     DataApi,
     ErrorResult,
-    InvocationEvent,
-    Logger,
-    Org,
     Secrets,
-    SObject,
     SuccessResult,
     UnitOfWork,
+} from '@salesforce/salesforce-sdk/dist/api';
+
+import {
+    Context,
+    InvocationEvent,
+    Org,
     User,
-} from '@salesforce/salesforce-sdk';
+} from '@salesforce/salesforce-sdk/dist/functions';
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
