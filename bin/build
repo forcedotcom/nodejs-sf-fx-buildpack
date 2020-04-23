@@ -8,14 +8,35 @@ echo "LAYERS_DIR: " $LAYERS_DIR
 MW_LAYER="$LAYERS_DIR/middleware"
 echo "MW_LAYER: " $MW_LAYER
 
+# Setup caching layer for middleware
+NODE_MODULES_DIR="${LAYERS_DIR}/node_modules" # the actual layer where the caching values are saved to
+touch "${NODE_MODULES_DIR}.toml"              # the layer toml file that tells lifecycle to enable cache
+mkdir -p "${NODE_MODULES_DIR}"
+
+# Create directory where ENV vars will be defined
 mkdir -p "$MW_LAYER/env"
 
 #BP_DIR has all the files that's untared from the buildpack targz 
 #copy all the source files to MW_LAYER folder
 cp -a "$BP_DIR/middleware/." $MW_LAYER
 
-#run npm install and build(to generate js file)
-cd $MW_LAYER && npm install && npm run build
+local_lock_checksum=$(sha256sum "${MW_LAYER}/package-lock.json" | cut -d " " -f 1)
+cached_lock_checksum=$(yj -t < "${LAYERS_DIR}/node_modules.toml" | jq -r ".metadata.package_lock_checksum")
+
+if [[ "$local_lock_checksum" == "$cached_lock_checksum" ]] ; then
+    echo "using previous node_modules from cache"
+    cp -r "${NODE_MODULES_DIR}" "${MW_LAYER}/node_modules"
+else
+    echo "cache = true" > "${LAYERS_DIR}/node_modules.toml"
+    {
+      echo "build = false"
+      echo "launch = false"
+      echo -e "[metadata]\npackage_lock_checksum = \"$local_lock_checksum\""
+    } >> "${LAYERS_DIR}/node_modules.toml"
+
+    cd $MW_LAYER && npm install && npm run build
+    cp -r "${MW_LAYER}/node_modules" "${NODE_MODULES_DIR}"
+fi
 
 #set env variable MIDDLEWARE_FUNCTION_URI to the index.js file
 echo -n "$MW_LAYER/dist/index.js" > "$MW_LAYER/env/MIDDLEWARE_FUNCTION_URI"
