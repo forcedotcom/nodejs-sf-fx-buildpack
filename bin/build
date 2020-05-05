@@ -13,6 +13,11 @@ NODE_MODULES_DIR="${LAYERS_DIR}/node_modules" # the actual layer where the cachi
 touch "${NODE_MODULES_DIR}.toml"              # the layer toml file that tells lifecycle to enable cache
 mkdir -p "${NODE_MODULES_DIR}"
 
+# Setup caching layer for Typescript dist directory
+DIST_DIR="${LAYERS_DIR}/dist"
+touch "${DIST_DIR}.toml"
+mkdir -p "${DIST_DIR}"
+
 # Create directory where ENV vars will be defined
 mkdir -p "$MW_LAYER/env"
 
@@ -24,24 +29,26 @@ local_lock_checksum=$(sha256sum "${MW_LAYER}/package-lock.json" | cut -d " " -f 
 cached_lock_checksum=$(yj -t < "${LAYERS_DIR}/node_modules.toml" | jq -r ".metadata.package_lock_checksum")
 
 if [[ "$local_lock_checksum" == "$cached_lock_checksum" ]] ; then
-    echo "using previous node_modules from cache"
+    echo "using previous node_modules and dist artifacts from cache"
     cp -r "${NODE_MODULES_DIR}/." "${MW_LAYER}/node_modules"
-    pushd $MW_LAYER
-      npm run build
-    popd
+    cp -r "${DIST_DIR}/." "${MW_LAYER}/dist"
 else
-    echo "cache = true" > "${LAYERS_DIR}/node_modules.toml"
+    echo "cache = true" > "${NODE_MODULES_DIR}.toml"
     {
       echo "build = false"
       echo "launch = false"
       echo -e "[metadata]\npackage_lock_checksum = \"$local_lock_checksum\""
-    } >> "${LAYERS_DIR}/node_modules.toml"
+    } >> "${NODE_MODULES_DIR}.toml"
+
+    # Use the same caching, build, and launch settings as the node_modules.toml
+    cat "${NODE_MODULES_DIR}.toml" >> ${DIST_DIR}.toml
 
     pushd $MW_LAYER
       npm install
       npm run build
     popd
     cp -r "${MW_LAYER}/node_modules/." "${NODE_MODULES_DIR}"
+    cp -r "${MW_LAYER}/dist/." "${DIST_DIR}"
 fi
 
 #set env variable MIDDLEWARE_FUNCTION_URI to the index.js file
