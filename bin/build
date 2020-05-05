@@ -13,7 +13,11 @@ NODE_MODULES_DIR="${LAYERS_DIR}/node_modules" # the actual layer where the cachi
 touch "${NODE_MODULES_DIR}.toml"              # the layer toml file that tells lifecycle to enable cache
 mkdir -p "${NODE_MODULES_DIR}"
 
-# Setup caching layer for Typescript dist directory
+# Setup caching layer for Typescript dist directory.  Worst case, tsc should only
+# run once.  This middleware is more or less an external library that doesn't need 
+# to be built more than once (maybe never).  The only time it should be rebuilt is
+# after a new version of the middleware has been released e.g. version update to
+# package-lock.json file.
 DIST_DIR="${LAYERS_DIR}/dist"
 touch "${DIST_DIR}.toml"
 mkdir -p "${DIST_DIR}"
@@ -41,6 +45,8 @@ else
     } >> "${NODE_MODULES_DIR}.toml"
 
     # Use the same caching, build, and launch settings as the node_modules.toml
+    # The only time the tsc should be re-ran is if there's been a change to
+    # the package-lock.json file e.g. verion update/new release.
     cat "${NODE_MODULES_DIR}.toml" >> ${DIST_DIR}.toml
 
     pushd $MW_LAYER
