@@ -30,7 +30,7 @@ mkdir -p "$MW_LAYER/env"
 cp -a "$BP_DIR/middleware/." $MW_LAYER
 
 local_lock_checksum=$(sha256sum "${MW_LAYER}/package-lock.json" | cut -d " " -f 1)
-cached_lock_checksum=$(yj -t < "${LAYERS_DIR}/node_modules.toml" | jq -r ".metadata.package_lock_checksum")
+cached_lock_checksum=$(yj -t < "${NODE_MODULES_DIR}.toml" | jq -r ".metadata.package_lock_checksum")
 
 if [[ "$local_lock_checksum" == "$cached_lock_checksum" ]] ; then
     echo "using previous node_modules and dist artifacts from cache"
@@ -50,7 +50,7 @@ else
     cat "${NODE_MODULES_DIR}.toml" >> ${DIST_DIR}.toml
 
     pushd $MW_LAYER
-      npm install
+      npm install --only=production
       npm run build
     popd
     cp -r "${MW_LAYER}/node_modules/." "${NODE_MODULES_DIR}"
