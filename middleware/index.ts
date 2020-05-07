@@ -18,6 +18,12 @@ import {
     User,
 } from '@salesforce/salesforce-sdk/dist/functions';
 
+import * as path from 'path';
+
+const { DEBUG } = process.env;
+
+console.log("loading middleware/index");
+
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
   public response: any;
@@ -196,7 +202,7 @@ function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?
  *                  OR
  *                  as the input argument to user functions if this is the last middleware function
  */
-export default function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): Array<any> {
+function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): Array<any> {
     // Validate the input request
     if (!request) {
         throw new Error('Request Data not provided');
@@ -258,3 +264,66 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
     // Function params
     return [event, context, logger];
 }
+
+function getUserFn() {
+  const pjsonPath = path.join('/workspace', 'package.json');
+  let main;
+  try {
+    main = require(pjsonPath).main;
+  } catch (e) {
+    console.log(e);
+    throw `Could not read package.json: ${e}`;
+  }
+  const mainPath = path.join('/workspace', main);
+  let mod;
+  try {
+    mod = require(mainPath);
+  } catch (e) {
+    console.log(e);
+    throw `Could not locate user function: ${e}`;
+  }
+  if (mod.__esModule && typeof mod.default === 'function') {
+    return mod.default;
+  }
+  return mod;
+}
+
+function createLogger(): Logger {
+  const level = DEBUG ? LoggerLevel.DEBUG : LoggerLevel.INFO;
+  const logger = new Logger('Evergreen Logger');
+  logger.setLevel(level);
+  return logger;
+}
+
+
+const userFn = getUserFn();
+
+function systemFn(payload: object, headers: object): object {
+  console.dir({payload, headers});
+  const logger = createLogger();
+  const secrets = createSecrets(logger);
+  const requestId = "1234";
+  const reqContext = payload["data"]["context"];
+  const event = createEvent(payload["data"], {}, {});
+
+  let accessToken: string;
+  let functionInvocationId: string;
+  if (payload["data"]["sfContext"]) {
+      accessToken = payload["data"]["sfContext"]["accessToken"] || undefined;
+      functionInvocationId = payload["data"]["sfContext"]["functionInvocationId"] || undefined;
+  }
+
+  const context = createContext(requestId, logger, secrets, reqContext, accessToken, functionInvocationId);
+  try {
+    return userFn(event, context, logger);
+  } catch (error) {
+    logger.error({msg: "Error running supplied function", error});
+    throw error;
+  }
+}
+
+systemFn.$argumentType = 'message';
+systemFn.$init = userFn.$init;
+systemFn.$destroy = userFn.$destroy;
+
+export default systemFn;
