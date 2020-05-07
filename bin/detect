@@ -16,6 +16,13 @@ if [ -f package.json ]; then
 
   if grep -q "@salesforce/salesforce-sdk" package.json; then
     echo "detected and applying sf-fx-middleware buildpack"
+
+    cat << EOF > "$2"
+  [[requires]]
+  name = "riff-invoker-node"
+  [requires.metadata]
+  fn = "../layers/salesforce_nodejs-fn/middleware/dist"
+EOF
     exit 0
   else
     echo "package does not depend on salesforce-sdk"

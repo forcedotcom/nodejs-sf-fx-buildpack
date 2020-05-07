@@ -57,6 +57,4 @@ else
     cp -r "${MW_LAYER}/dist/." "${DIST_DIR}"
 fi
 
-#set env variable MIDDLEWARE_FUNCTION_URI to the index.js file
-echo -n "$MW_LAYER/dist/index.js" > "$MW_LAYER/env/MIDDLEWARE_FUNCTION_URI"
 echo "launch = true" > "$MW_LAYER.toml"
