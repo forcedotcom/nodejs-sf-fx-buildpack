@@ -7,10 +7,12 @@ import * as sinon from 'sinon';
 
 use(chaiAsPromised);
 
-import applySfFxMiddleware from '../../index';
 import { Context, Logger, Org, User } from '@salesforce/salesforce-sdk';
 import { FakeFunction, generateData, generateRawMiddleWareRequest} from './FunctionTestUtils';
+import * as rewire from 'rewire';
 
+const middleware = rewire('../../index');
+const applySfFxMiddleware = middleware.__get__('applySfFxMiddleware');
 
 interface PdfEvent {
     html?: string,

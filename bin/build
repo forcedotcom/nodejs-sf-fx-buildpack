@@ -47,7 +47,7 @@ else
     # Use the same caching, build, and launch settings as the node_modules.toml
     # The only time the tsc should be re-ran is if there's been a change to
     # the package-lock.json file e.g. verion update/new release.
-    cat "${NODE_MODULES_DIR}.toml" >> ${DIST_DIR}.toml
+    cat "${NODE_MODULES_DIR}.toml" >> "${DIST_DIR}.toml"
 
     pushd $MW_LAYER
       npm install --only=production
@@ -57,6 +57,6 @@ else
     cp -r "${MW_LAYER}/dist/." "${DIST_DIR}"
 fi
 
-#set env variable MIDDLEWARE_FUNCTION_URI to the index.js file
-echo -n "$MW_LAYER/dist/index.js" > "$MW_LAYER/env/MIDDLEWARE_FUNCTION_URI"
+mkdir -p "$MW_LAYER/env.launch"
+echo -n "$MW_LAYER" > "$MW_LAYER/env.launch/FUNCTION_URI.override"
 echo "launch = true" > "$MW_LAYER.toml"

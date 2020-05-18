@@ -1,4 +1,3 @@
-import * as fs from 'fs';
 import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
 import {SObject} from '@salesforce/salesforce-sdk/dist/objects';
 import {Constants} from '@salesforce/salesforce-sdk/dist/index';
@@ -17,6 +16,7 @@ import {
     Org,
     User,
 } from '@salesforce/salesforce-sdk/dist/functions';
+import * as path from "path";
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
@@ -196,7 +196,7 @@ function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?
  *                  OR
  *                  as the input argument to user functions if this is the last middleware function
  */
-export default function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): Array<any> {
+function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): Array<any> {
     // Validate the input request
     if (!request) {
         throw new Error('Request Data not provided');
@@ -258,3 +258,72 @@ export default function applySfFxMiddleware(request: any, state: any, resultArgs
     // Function params
     return [event, context, logger];
 }
+
+function getUserFn() {
+    const functionPath = process.env.USER_FUNCTION_URI || '/workspace';
+    const pjsonPath = path.join(functionPath, 'package.json');
+    let main;
+    try {
+        main = require(pjsonPath).main;
+    } catch (e) {
+        console.log(e);
+        throw `Could not read package.json: ${e}`;
+    }
+    const mainPath = path.join(functionPath, main);
+    let mod;
+    try {
+        mod = require(mainPath);
+    } catch (e) {
+        console.log(e);
+        throw `Could not locate user function: ${e}`;
+    }
+    if (mod.__esModule && typeof mod.default === 'function') {
+        return mod.default;
+    }
+    return mod;
+}
+
+function createLogger(requestID: string): Logger {
+    const logger = new Logger('Evergreen Logger');
+    const level = process.env.DEBUG ? LoggerLevel.DEBUG : LoggerLevel.INFO;
+
+    logger.addStream({stream: process.stderr});
+    logger.setLevel(level);
+
+    if (requestID) {
+        logger.addField('request_id', requestID);
+    }
+
+    return logger;
+}
+
+const userFn = getUserFn();
+
+export default async function systemFn(message: object): Promise<object> {
+    const payload = message['payload'];
+
+    // Remap headers to a standard JS object
+    const headers = message['headers'].toRiffHeaders();
+    Object.keys(headers).map((key: string) => {headers[key] = message['headers'].getValue(key)});
+
+    const requestId = headers['ce-id'] || headers['x-request-id'];
+    const requestLogger = createLogger(requestId);
+    try {
+        const middlewareResult = await applySfFxMiddleware(
+            {payload, headers},
+            {},
+            [payload, requestLogger]);
+        const result = await userFn(...middlewareResult);
+
+        // If userFn does not have explicit return, it would be undefined, when || with null, it would be null
+        // for Accept header, riff node invoker's application/json marshaller Buffer.from(JSON.stringify(null))
+        return result || null;
+    } catch (error) {
+        requestLogger.error(error.toString());
+        throw error;
+    }
+}
+
+systemFn.$argumentType = 'message';
+systemFn.$init = userFn.$init;
+systemFn.$destroy = userFn.$destroy;
