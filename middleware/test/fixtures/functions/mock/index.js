@@ -13,5 +13,5 @@ const sdk = require('@salesforce/salesforce-sdk');
  *                 to a given execution of a function.
  */
 module.exports = function (event, context, logger) {
-    return 'success'
+    return {'success': true};
 }

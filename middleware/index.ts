@@ -289,7 +289,7 @@ function getUserFn() {
     return mod;
 }
 
-function createLogger(requestID: string): Logger {
+function createLogger(requestID?: string): Logger {
     const logger = new Logger('Evergreen Logger');
     const level = process.env.DEBUG ? LoggerLevel.DEBUG : LoggerLevel.INFO;
 
