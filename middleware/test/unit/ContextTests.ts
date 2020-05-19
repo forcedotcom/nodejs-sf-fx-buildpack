@@ -6,8 +6,11 @@ import * as fs from 'fs';
 import 'mocha';
 import * as sinon from 'sinon';
 
-import applySfFxMiddleware from '../../index';
+import * as rewire from 'rewire';
 import {generateData, generateRawMiddleWareRequest} from './FunctionTestUtils';
+
+const middleware = rewire('../../index');
+const applySfFxMiddleware = middleware.__get__('applySfFxMiddleware');
 
 describe('Context Tests', () => {
     let sandbox: sinon.SinonSandbox;
