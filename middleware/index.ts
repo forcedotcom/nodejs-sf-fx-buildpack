@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
 import {SObject} from '@salesforce/salesforce-sdk/dist/objects';
-import {Constants} from '@salesforce/salesforce-sdk/dist/index';
+import {Constants, APIVersion} from '@salesforce/salesforce-sdk/dist/index';
 import {
     ConnectionConfig,
     DataApi,
@@ -9,6 +9,7 @@ import {
     Secrets,
     SuccessResult,
     UnitOfWork,
+    UnitOfWorkGraph,
 } from '@salesforce/salesforce-sdk/dist/api';
 
 import {
@@ -136,6 +137,7 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
     // If accessToken was provided, setup APIs.
     let dataApi: DataApi | undefined;
     let unitOfWork: UnitOfWork | undefined;
+    let unitOfWorkGraph: UnitOfWorkGraph | undefined;
     if (accessToken) {
         const config: ConnectionConfig = new ConnectionConfig(
             accessToken,
@@ -143,6 +145,9 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
             userContext.salesforceBaseUrl
         );
         unitOfWork = new UnitOfWork(config, logger);
+        if (apiVersion >= APIVersion.V50) {
+            unitOfWorkGraph = new UnitOfWorkGraph(config, logger);
+        }
         dataApi = new DataApi(config, logger);
     }
 
@@ -153,7 +158,8 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
         userContext.orgId,
         user,
         dataApi,
-        unitOfWork
+        unitOfWork,
+        unitOfWorkGraph
     );
 }
 

@@ -98,6 +98,7 @@ describe('Context Tests', () => {
         // Requires accessToken
         expect(context.org.data).to.exist;
         expect(context.org.unitOfWork).to.exist;
+        expect(context.org.unitOfWorkGraph).to.not.exist;       //apiVersion needs to be at least 50.0
         expect(context['fxInvocation']).to.exist;
         expect(context['fxInvocation'].id).to.equal(fxInvocationId);
 
@@ -135,6 +136,7 @@ describe('Context Tests', () => {
         // Requires accessToken
         expect(context.org.data).to.not.exist;
         expect(context.org.unitOfWork).to.not.exist;
+        expect(context.org.unitOfWorkGraph).to.not.exist;
         expect(context['fxInvocation']).to.not.exist;
     });
 
@@ -147,6 +149,23 @@ describe('Context Tests', () => {
         const context: Context = getContext(data);
         expect(context.org.apiVersion).to.exist;
         expect(context.org.apiVersion).to.equal('0.0');
+    });
+
+    it('validate uowGraph with API version override to 50.0', () => {
+        const data = generateData(true);
+
+        expect(data.context).to.exist;
+        expect(data.context.apiVersion).to.exist;
+        data.context.apiVersion = '50.0';
+
+        const context: Context = getContext(data);
+        expect(context.org.apiVersion).to.exist;
+        expect(context.org.apiVersion).to.equal('50.0');
+
+        // Requires accessToken
+        expect(context.org.data).to.exist;
+        expect(context.org.unitOfWork).to.exist;
+        expect(context.org.unitOfWorkGraph).to.exist;       //apiVersion needs to be at least 50.0
     });
 
     it('should not create Context.org WITHOUT data.context', () => {
