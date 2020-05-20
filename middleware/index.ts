@@ -195,23 +195,14 @@ function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?
 /**
  * Initialize Salesforce SDK for function invocation.
  *
- * @param request     -- contains {payload,headers}, see https://github.com/heroku/node-function-buildpack/blob/master/system/index.js#L59
- * @param state       -- not used as an input here
- * @param resultArgs  -- Array, the last element is logger, from the node-function-buildpack's system function
- * @return returnArgs -- array of arguments that will be passed to the next middleware function chain as the resultArgs(the 3rd argument)
- *                  OR
- *                  as the input argument to user functions if this is the last middleware function
+ * @param request     -- contains {payload, headers}
+ * @param logger      -- Logger
+ * @return returnArgs -- array of arguments that make-up the user functions arguments
  */
-function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): Array<any> {
+function applySfFxMiddleware(request: any, logger: Logger): Array<any> {
     // Validate the input request
     if (!request) {
         throw new Error('Request Data not provided');
-    }
-
-    // Logger is the last element in the array
-    const logger: Logger = resultArgs[resultArgs.length-1];
-    if (!logger) {
-        throw new Error('Logger not provided in resultArgs from node system function');
     }
 
     //use secret here in lieu of DEBUG runtime environment var until we have deployment time support of config var
@@ -251,9 +242,7 @@ function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): 
     // Construct event contain custom payload and details about the function request
     const event = createEvent(data.payload, request.headers, request.payload);
 
-    // Construct invocation context, send it to the user function.
-    // The logger has been init'ed in the system function of the node
-    // function buildpack, is passed in as an attribute on the resultArgs
+    // Construct invocation context, to be sent to the user function.
     const context = createContext(request.payload.id,
                                   logger,
                                   secrets,
@@ -265,7 +254,7 @@ function applySfFxMiddleware(request: any, state: any, resultArgs: Array<any>): 
     return [event, context, logger];
 }
 
-function getUserFn() {
+function getUserFn(): any {
     const functionPath = process.env.USER_FUNCTION_URI || '/workspace';
     const pjsonPath = path.join(functionPath, 'package.json');
     let main;
@@ -305,22 +294,20 @@ function createLogger(requestID?: string): Logger {
 
 const userFn = getUserFn();
 
-export default async function systemFn(message: object): Promise<object> {
+export default async function systemFn(message: any): Promise<any> {
     const payload = message['payload'];
 
-    // Remap headers to a standard JS object
+    // Remap riff headers to a standard JS object
     const headers = message['headers'].toRiffHeaders();
     Object.keys(headers).map((key: string) => {headers[key] = message['headers'].getValue(key)});
 
     const requestId = headers['Ce-Id'] || headers['X-Request-Id'];
     const requestLogger = createLogger(requestId);
     try {
-        const middlewareResult = await applySfFxMiddleware(
-            {payload, headers},
-            {},
-            [payload, requestLogger]);
+        const middlewareResult = await applySfFxMiddleware({payload, headers}, requestLogger);
         const result = await userFn(...middlewareResult);
 
+        // Currently, riff doesn't support undefined or null return values
         return result || '';
     } catch (error) {
         requestLogger.error(error.toString());
