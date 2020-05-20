@@ -312,7 +312,7 @@ export default async function systemFn(message: object): Promise<object> {
     const headers = message['headers'].toRiffHeaders();
     Object.keys(headers).map((key: string) => {headers[key] = message['headers'].getValue(key)});
 
-    const requestId = headers['ce-id'] || headers['x-request-id'];
+    const requestId = headers['Ce-Id'] || headers['X-Request-Id'];
     const requestLogger = createLogger(requestId);
     try {
         const middlewareResult = await applySfFxMiddleware(
@@ -321,9 +321,7 @@ export default async function systemFn(message: object): Promise<object> {
             [payload, requestLogger]);
         const result = await userFn(...middlewareResult);
 
-        // If userFn does not have explicit return, it would be undefined, when || with null, it would be null
-        // for Accept header, riff node invoker's application/json marshaller Buffer.from(JSON.stringify(null))
-        return result || null;
+        return result || '';
     } catch (error) {
         requestLogger.error(error.toString());
         throw error;

@@ -57,6 +57,4 @@ else
     cp -r "${MW_LAYER}/dist/." "${DIST_DIR}"
 fi
 
-mkdir -p "$MW_LAYER/env.launch"
-echo -n "$MW_LAYER" > "$MW_LAYER/env.launch/FUNCTION_URI.override"
 echo "launch = true" > "$MW_LAYER.toml"
