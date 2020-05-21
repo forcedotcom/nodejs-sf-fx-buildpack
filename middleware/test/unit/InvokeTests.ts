@@ -73,7 +73,7 @@ describe('Invoke Function Tests', () => {
 
         // cloudevent generated above
         // Until middleware is in place, context passed to function is not provide
-        const middlewareResult = applySfFxMiddleware(rawRequest, {}, [LOGGER]);
+        const middlewareResult = applySfFxMiddleware(rawRequest, LOGGER);
         expect(middlewareResult).to.exist;
 
         const event = middlewareResult[0];
@@ -93,7 +93,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should invoke function', async () => {
-        const transformedParams = applySfFxMiddleware(rawRequest, {}, [LOGGER]);
+        const transformedParams = applySfFxMiddleware(rawRequest, LOGGER);
         const event = transformedParams[0];
         const context = transformedParams[1];
 
@@ -114,7 +114,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should have payload', async () => {
-        const transformedParams = applySfFxMiddleware(rawRequest, {}, [LOGGER]);
+        const transformedParams = applySfFxMiddleware(rawRequest, LOGGER);
         const event = transformedParams[0];
         const context = transformedParams[1];
 
@@ -132,7 +132,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should handle FunctionInvocation', async () => {
-        const transformedParams = applySfFxMiddleware(rawRequest, {}, [LOGGER]);
+        const transformedParams = applySfFxMiddleware(rawRequest, LOGGER);
         const event = transformedParams[0];
         const context = transformedParams[1];
 

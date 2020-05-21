@@ -58,7 +58,6 @@ else
 fi
 
 mkdir -p "$MW_LAYER/env.launch"
-echo -n "$MW_LAYER" > "$MW_LAYER/env.launch/FUNCTION_URI.override"
 if [[ ! -z "${DEBUG_PORT}" ]]; then
   echo -n "--inspect=0.0.0.0:${DEBUG_PORT}" > "$MW_LAYER/env.launch/NODE_OPTIONS.override"
 fi

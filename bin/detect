@@ -3,6 +3,14 @@ set -eo pipefail
 
 if [ -f package.json ]; then
   echo "detected package.json"
+
+cat << EOF > "$2"
+[[requires]]
+name = "riff-invoker-node"
+
+[requires.metadata]
+fn = "../layers/salesforce_nodejs-fn/middleware/dist"
+EOF
   exit 0
 fi
 

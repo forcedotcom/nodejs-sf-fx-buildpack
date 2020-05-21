@@ -79,7 +79,7 @@ describe('Context Tests', () => {
     const getContext = (data: any) : Context => {
         const rawRequest = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+        const mwResult: any = applySfFxMiddleware(rawRequest, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -204,7 +204,7 @@ describe('Context Tests', () => {
 
         const rawRequest = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+        const mwResult: any = applySfFxMiddleware(rawRequest, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -225,7 +225,7 @@ describe('Context Tests', () => {
 
         const rawRequest = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+        const mwResult: any = applySfFxMiddleware(rawRequest, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -238,7 +238,7 @@ describe('Context Tests', () => {
         const data = {"someproperty":"whatever"};
         const rawRequest = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFxMiddleware(rawRequest, {}, [logger]);
+        const mwResult: any = applySfFxMiddleware(rawRequest, logger);
 
         expect(mwResult).to.be.an('array');
         expect(mwResult).to.have.lengthOf(3);
