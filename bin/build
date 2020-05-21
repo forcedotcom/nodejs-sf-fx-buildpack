@@ -57,4 +57,8 @@ else
     cp -r "${MW_LAYER}/dist/." "${DIST_DIR}"
 fi
 
+mkdir -p "$MW_LAYER/env.launch"
+if [[ ! -z "${DEBUG_PORT}" ]]; then
+  echo -n "--inspect=0.0.0.0:${DEBUG_PORT}" > "$MW_LAYER/env.launch/NODE_OPTIONS.override"
+fi
 echo "launch = true" > "$MW_LAYER.toml"
