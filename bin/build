@@ -37,6 +37,8 @@ if [[ "$local_lock_checksum" == "$cached_lock_checksum" ]] ; then
     cp -r "${NODE_MODULES_DIR}/." "${MW_LAYER}/node_modules"
     cp -r "${DIST_DIR}/." "${MW_LAYER}/dist"
 else
+
+    # Save node_modules.toml
     echo "cache = true" > "${NODE_MODULES_DIR}.toml"
     {
       echo "build = false"
@@ -44,10 +46,13 @@ else
       echo -e "[metadata]\npackage_lock_checksum = \"$local_lock_checksum\""
     } >> "${NODE_MODULES_DIR}.toml"
 
-    # Use the same caching, build, and launch settings as the node_modules.toml
-    # The only time the tsc should be re-ran is if there's been a change to
-    # the package-lock.json file e.g. verion update/new release.
-    cat "${NODE_MODULES_DIR}.toml" >> "${DIST_DIR}.toml"
+    # Save dist.toml
+    echo "cache = true" > "${DIST_DIR}.toml"
+    {
+      echo "build = false"
+      echo "launch = false"
+      echo -e "[metadata]\npackage_lock_checksum = \"$local_lock_checksum\""
+    } >> "${DIST_DIR}.toml"
 
     pushd $MW_LAYER
       npm install --only=production
