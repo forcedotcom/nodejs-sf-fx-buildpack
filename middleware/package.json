@@ -1,6 +1,6 @@
 {
   "name": "sf-fx-middleware",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Middleware for salesforce functions",
   "license": "UNLICENSED",
   "main": "dist/index.js",
@@ -26,6 +26,7 @@
   },
   "author": "TODO",
   "dependencies": {
+    "@projectriff/message": "^1.0.0",
     "@salesforce/salesforce-sdk": "^1.2.0",
     "@types/node": "^10.17.21",
     "tslib": "1.9.3",
