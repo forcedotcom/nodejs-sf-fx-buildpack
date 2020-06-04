@@ -17,6 +17,7 @@ import {
     Org,
     User,
 } from '@salesforce/salesforce-sdk/dist/functions';
+const {Message} = require('@projectriff/message');
 import * as path from "path";
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
@@ -292,6 +293,18 @@ function createLogger(requestID?: string): Logger {
     return logger;
 }
 
+function errorMessage(error: Error): any {
+    // any error in user-function-space should be considered a 500
+    // ensure we send down application/json in this case
+    return Message.builder()
+        .addHeader('content-type', 'application/json')
+        .addHeader('x-http-status', '500')
+        .payload({
+            error: error.toString(),
+        })
+        .build();
+}
+
 const userFn = getUserFn();
 
 export default async function systemFn(message: any): Promise<any> {
@@ -311,7 +324,7 @@ export default async function systemFn(message: any): Promise<any> {
         return result || '';
     } catch (error) {
         requestLogger.error(error.toString());
-        throw error;
+        return errorMessage(error)
     }
 }
 
