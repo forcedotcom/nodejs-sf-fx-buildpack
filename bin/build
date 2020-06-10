@@ -13,15 +13,6 @@ NODE_MODULES_DIR="${LAYERS_DIR}/node_modules" # the actual layer where the cachi
 touch "${NODE_MODULES_DIR}.toml"              # the layer toml file that tells lifecycle to enable cache
 mkdir -p "${NODE_MODULES_DIR}"
 
-# Setup caching layer for Typescript dist directory.  Worst case, tsc should only
-# run once.  This middleware is more or less an external library that doesn't need 
-# to be built more than once (maybe never).  The only time it should be rebuilt is
-# after a new version of the middleware has been released e.g. version update to
-# package-lock.json file.
-DIST_DIR="${LAYERS_DIR}/dist"
-touch "${DIST_DIR}.toml"
-mkdir -p "${DIST_DIR}"
-
 # Create directory where ENV vars will be defined
 mkdir -p "$MW_LAYER/env"
 
@@ -35,7 +26,6 @@ cached_lock_checksum=$(yj -t < "${NODE_MODULES_DIR}.toml" | jq -r ".metadata.pac
 if [[ "$local_lock_checksum" == "$cached_lock_checksum" ]] ; then
     echo "using previous node_modules and dist artifacts from cache"
     cp -r "${NODE_MODULES_DIR}/." "${MW_LAYER}/node_modules"
-    cp -r "${DIST_DIR}/." "${MW_LAYER}/dist"
 else
 
     # Save node_modules.toml
@@ -46,20 +36,10 @@ else
       echo -e "[metadata]\npackage_lock_checksum = \"$local_lock_checksum\""
     } >> "${NODE_MODULES_DIR}.toml"
 
-    # Save dist.toml
-    echo "cache = true" > "${DIST_DIR}.toml"
-    {
-      echo "build = false"
-      echo "launch = false"
-      echo -e "[metadata]\npackage_lock_checksum = \"$local_lock_checksum\""
-    } >> "${DIST_DIR}.toml"
-
     pushd $MW_LAYER
       npm install --only=production
-      npm run build
     popd
     cp -r "${MW_LAYER}/node_modules/." "${NODE_MODULES_DIR}"
-    cp -r "${MW_LAYER}/dist/." "${DIST_DIR}"
 fi
 
 mkdir -p "$MW_LAYER/env.launch"
