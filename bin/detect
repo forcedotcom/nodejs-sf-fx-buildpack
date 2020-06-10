@@ -6,7 +6,7 @@ if [ -f package.json ]; then
 
 cat << EOF > "$2"
 [[requires]]
-name = "riff-invoker-node"
+name = "riff-node"
 
 [requires.metadata]
 fn = "../layers/salesforce_nodejs-fn/middleware/dist"
