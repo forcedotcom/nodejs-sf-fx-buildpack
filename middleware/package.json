@@ -27,10 +27,7 @@
   "author": "TODO",
   "dependencies": {
     "@projectriff/message": "^1.0.0",
-    "@salesforce/salesforce-sdk": "^1.2.0",
-    "@types/node": "^10.17.21",
-    "tslib": "1.9.3",
-    "typescript": "3.4"
+    "@salesforce/salesforce-sdk": "^1.2.0"
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",
@@ -54,6 +51,8 @@
     "request-promise-native": "^1.0.7",
     "rewire": "^5.0.0",
     "sinon": "^7.2.3",
-    "ts-node": "^8.9.0"
+    "ts-node": "^8.9.0",
+    "tslib": "1.9.3",
+    "typescript": "3.4"
   }
 }
