@@ -9,7 +9,7 @@ cat << EOF > "$2"
 name = "riff-node"
 
 [requires.metadata]
-fn = "../layers/salesforce_nodejs-fn/middleware/dist"
+artifact = "../layers/salesforce_nodejs-fn/middleware/dist"
 EOF
   exit 0
 fi
