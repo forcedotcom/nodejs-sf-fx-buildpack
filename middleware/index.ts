@@ -18,7 +18,8 @@ import {
     User,
 } from '@salesforce/salesforce-sdk/dist/functions';
 const {Message} = require('@projectriff/message');
-import * as path from "path";
+
+import loadUserFunction from './userFnLoader'
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
@@ -255,30 +256,6 @@ function applySfFxMiddleware(request: any, logger: Logger): Array<any> {
     return [event, context, logger];
 }
 
-function getUserFn(): any {
-    const functionPath = process.env.USER_FUNCTION_URI || '/workspace';
-    const pjsonPath = path.join(functionPath, 'package.json');
-    let main;
-    try {
-        main = require(pjsonPath).main;
-    } catch (e) {
-        console.log(e);
-        throw `Could not read package.json: ${e}`;
-    }
-    const mainPath = path.join(functionPath, main);
-    let mod;
-    try {
-        mod = require(mainPath);
-    } catch (e) {
-        console.log(e);
-        throw `Could not locate user function: ${e}`;
-    }
-    if (mod.__esModule && typeof mod.default === 'function') {
-        return mod.default;
-    }
-    return mod;
-}
-
 function createLogger(requestID?: string): Logger {
     const logger = new Logger('Evergreen Logger');
     const level = process.env.DEBUG ? LoggerLevel.DEBUG : LoggerLevel.INFO;
@@ -305,7 +282,7 @@ function errorMessage(error: Error): any {
         .build();
 }
 
-const userFn = getUserFn();
+const userFn = loadUserFunction();
 
 export default async function systemFn(message: any): Promise<any> {
     const payload = message['payload'];
