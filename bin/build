@@ -16,7 +16,7 @@ mkdir -p "${NODE_MODULES_DIR}"
 # Create directory where ENV vars will be defined
 mkdir -p "$MW_LAYER/env"
 
-#BP_DIR has all the files that's untared from the buildpack targz 
+#BP_DIR has all the files that's untared from the buildpack targz
 #copy all the source files to MW_LAYER folder
 cp -a "$BP_DIR/middleware/." $MW_LAYER
 
@@ -47,3 +47,6 @@ if [[ ! -z "${DEBUG_PORT}" ]]; then
   echo -n "--inspect=0.0.0.0:${DEBUG_PORT}" > "$MW_LAYER/env.launch/NODE_OPTIONS.override"
 fi
 echo "launch = true" > "$MW_LAYER.toml"
+
+# test that we can load the user function
+echo "require('$MW_LAYER/dist/userFnLoader').default()" | node
