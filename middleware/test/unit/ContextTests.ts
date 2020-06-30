@@ -186,11 +186,7 @@ describe('Context Tests', () => {
         const fsStat = new fs.Stats();
         sinon.stub(fsStat, 'isDirectory').returns(true);
         sinon.stub(fsStat, 'isFile').returns(true);
-        sandbox.stub(fs, 'statSync')
-          .withArgs(`/platform/services/${sname}/secret`)
-          .returns(fsStat)
-          .withArgs(`/platform/services/${sname}/secret/${key}`)
-          .returns(fsStat);
+        sandbox.stub(fs, 'statSync').returns(fsStat);
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         sandbox.stub(fs, <any>'readdirSync')
           .withArgs(`/platform/services/${sname}/secret`)

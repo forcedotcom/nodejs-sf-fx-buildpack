@@ -21,6 +21,8 @@ const {Message} = require('@projectriff/message');
 
 import loadUserFunction from './userFnLoader'
 
+const ASYNC_HEADER = 'X-Async-Fulfill-Request'
+
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
   public response: any;
@@ -282,6 +284,58 @@ function errorMessage(error: Error): any {
         .build();
 }
 
+function isInitialAsyncRequest(payload: any, headers: any): boolean {
+    return payload.type 
+        && payload.type.startsWith('com.salesforce.function.async')
+        && !headers[ASYNC_HEADER];
+}
+
+// Invoke given function again to fulfill async request; response is not handled
+async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promise<void> {
+    let hostUrl = headers['Host'] || payload?.data?.sfContext?.resource;
+    if (!hostUrl) {
+        throw new Error('Unable to determine host');
+    }
+
+    headers[ASYNC_HEADER] = 'true';
+    const parsedUrl = require('url').parse(hostUrl);
+    const https = parsedUrl.protocol.startsWith('https');
+
+    const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (https ? 443 : 80),
+        method: 'POST',
+        path: '/',
+        headers
+    };
+
+    // Invoke function and ignore response
+    const lib = require(https ? 'https' : 'http');
+    await new Promise((resolve, reject) => {
+        const req = lib.request(options);
+        req.on('error', (err) => {
+            // Expect ECONNRESET when request was destroyed
+            if (!(req.destroyed && err.code === 'ECONNRESET')) {
+                reject(err);
+            }
+        });
+
+        // Forward original request
+        req.write(JSON.stringify(payload));
+        
+        // Flush and finishes sending the request
+        req.end(() => {
+            logger.info('### Forwarded async request');
+
+            // Forget response and destroy the socket
+            req.destroy();
+
+            // Don't care about response
+            resolve();
+        });
+    });
+};
+
 const userFn = loadUserFunction();
 
 export default async function systemFn(message: any): Promise<any> {
@@ -294,6 +348,15 @@ export default async function systemFn(message: any): Promise<any> {
     const requestId = headers['Ce-Id'] || headers['X-Request-Id'];
     const requestLogger = createLogger(requestId);
     try {
+        // If initial async request, invoke function again and release request
+        if (isInitialAsyncRequest(payload, headers)) {
+            requestLogger.info('### Received initial async request');
+            await invokeAsyncFn(requestLogger, payload, headers);
+            requestLogger.info('### Return initial async request');
+            // TODO: How to send 202?
+            return '';
+        }
+
         const middlewareResult = await applySfFxMiddleware({payload, headers}, requestLogger);
         const result = await userFn(...middlewareResult);
 

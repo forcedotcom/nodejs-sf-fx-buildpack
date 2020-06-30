@@ -5,7 +5,7 @@
   "license": "UNLICENSED",
   "main": "dist/index.js",
   "engines": {
-    "node": ">=8.0.0"
+    "node": ">=10.0.0"
   },
   "scripts": {
     "build": "node_modules/typescript/bin/tsc -p .",
@@ -27,13 +27,15 @@
   "author": "TODO",
   "dependencies": {
     "@projectriff/message": "^1.0.0",
-    "@salesforce/salesforce-sdk": "^1.2.0"
+    "@salesforce/salesforce-sdk": "^1.2.0",
+    "tslib": "^1.11.2",
+    "url": "^0.11.0"
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",
     "@types/chai-as-promised": "^7.1.0",
     "@types/mocha": "^5.2.5",
-    "@types/node": "^10.17.21",
+    "@types/node": "^14.0.13",
     "@types/sinon": "^7.5.2",
     "@typescript-eslint/eslint-plugin": "^2.29.0",
     "@typescript-eslint/parser": "^2.29.0",
@@ -51,8 +53,7 @@
     "request-promise-native": "^1.0.7",
     "rewire": "^5.0.0",
     "sinon": "^7.2.3",
-    "ts-node": "^8.9.0",
-    "tslib": "1.9.3",
-    "typescript": "3.4"
+    "ts-node": "^8.7",
+    "typescript": "3.8.3"
   }
 }
