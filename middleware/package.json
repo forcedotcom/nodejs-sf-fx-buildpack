@@ -27,7 +27,7 @@
   "author": "TODO",
   "dependencies": {
     "@projectriff/message": "^1.0.0",
-    "@salesforce/salesforce-sdk": "^1.2.0"
+    "@salesforce/salesforce-sdk": "^1.3.0"
   },
   "devDependencies": {
     "@types/chai": "^4.2.11",
