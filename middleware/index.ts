@@ -18,15 +18,23 @@ import {
     User,
 } from '@salesforce/salesforce-sdk/dist/functions';
 const {Message} = require('@projectriff/message');
+const http = require('http');
+const https = require('https');
 
 import loadUserFunction from './userFnLoader'
 
-const ASYNC_HEADER = 'X-Async-Fulfill-Request'
+const ASYNC_FULFULLMENT_HEADER = 'X-Async-Fulfill-Request';
+const FN_INVOCATION = 'fnInvocation';
+
+enum FunctionInvocationRequestStatusEnum {
+    Success = 'Success',
+    Error = 'Error'
+}
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
 class FunctionInvocationRequest {
   public response: any;
-  public status: string;
+  public status: FunctionInvocationRequestStatusEnum;
 
   constructor(public readonly id: string,
               private readonly logger: Logger,
@@ -54,9 +62,12 @@ class FunctionInvocationRequest {
               this.logger.warn(err.message);
           }
 
-          const fxInvocation = new SObject('FunctionInvocationRequest').withId(this.id);
-          fxInvocation.setValue('ResponseBody', responseBase64);
-          const result: SuccessResult | ErrorResult = await this.dataApi.update(fxInvocation);
+          const fnInvocation = new SObject('FunctionInvocationRequest').withId(this.id);
+          fnInvocation.setValue('ResponseBody', responseBase64);
+          if (this.status) {
+            fnInvocation.setValue('Status', this.status.toString());
+          }
+          const result: SuccessResult | ErrorResult = await this.dataApi.update(fnInvocation);
           if (!result.success && 'errors' in result) {
               // Tells tsc that 'errors' exist and join below is okay
               const msg = `Failed to send response [${this.id}]: ${result.errors.join(',')}`;
@@ -188,10 +199,10 @@ function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?
     const context = new Context(id, logger, org, secrets);
 
     // If functionInvocationId is provided, create and set FunctionInvocationRequest object
-    let fxInvocation: FunctionInvocationRequest;
+    let fnInvocation: FunctionInvocationRequest;
     if (accessToken && functionInvocationId) {
-        fxInvocation = new FunctionInvocationRequest(functionInvocationId, logger, org.data);
-        context['fxInvocation'] = fxInvocation;
+        fnInvocation = new FunctionInvocationRequest(functionInvocationId, logger, org.data);
+        context[FN_INVOCATION] = fnInvocation;
     }
     return context;
 }
@@ -203,7 +214,7 @@ function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?
  * @param logger      -- Logger
  * @return returnArgs -- array of arguments that make-up the user functions arguments
  */
-function applySfFxMiddleware(request: any, logger: Logger): Array<any> {
+function applySfFnMiddleware(request: any, logger: Logger): Array<any> {
     // Validate the input request
     if (!request) {
         throw new Error('Request Data not provided');
@@ -211,7 +222,7 @@ function applySfFxMiddleware(request: any, logger: Logger): Array<any> {
 
     //use secret here in lieu of DEBUG runtime environment var until we have deployment time support of config var
     const secrets = createSecrets(logger);
-    const debugSecret = secrets.getValue("sf-debug", "DEBUG");
+    const debugSecret = secrets.getValue('sf-debug', 'DEBUG');
     logger.info(`DEBUG flag is ${debugSecret ? debugSecret : 'unset'}`);
     if(debugSecret || LoggerLevel.DEBUG === logger.getLevel() || process.env.DEBUG) {
         //for dev preview, we log the ENTIRE raw request, may need to filter sensitive properties out later
@@ -284,38 +295,69 @@ function errorMessage(error: Error): any {
         .build();
 }
 
-function isInitialAsyncRequest(payload: any, headers: any): boolean {
-    return payload.type 
-        && payload.type.startsWith('com.salesforce.function.async')
-        && !headers[ASYNC_HEADER];
+function isAsyncRequest(type: string) {
+    return type && type.startsWith('com.salesforce.function.async');
+}
+
+// Save update to FunctionInvocationRequest
+// Does not throw
+async function saveFnInvocation(logger: Logger, 
+                                fnInvocation: FunctionInvocationRequest, 
+                                response: any, 
+                                status: FunctionInvocationRequestStatusEnum = FunctionInvocationRequestStatusEnum.Success): Promise<void> {
+    if (!fnInvocation) {
+        return;
+    }
+
+    try {
+        fnInvocation.status = status;
+        fnInvocation.response = response;
+        await fnInvocation.save();
+    } catch (err) {
+        logger.error(`Unable to save function response [${fnInvocation.id}]: ${err.message}`);
+    }
+}
+
+async function saveFnInvocationError(logger: Logger, fnInvocation: FunctionInvocationRequest, response: any): Promise<void> {
+    await saveFnInvocation(logger, fnInvocation, response, FunctionInvocationRequestStatusEnum.Error);
 }
 
 // Invoke given function again to fulfill async request; response is not handled
-async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promise<void> {
-    let hostUrl = headers['Host'] || payload?.data?.sfContext?.resource;
+async function invokeAsyncFn(logger: Logger, payload: any, headers: any, fnInvocation: FunctionInvocationRequest) {
+    // host header is required
+    const hostKey = Object.keys(headers).find(k => 'x-forwarded-host' === k.toLowerCase());
+    const hostUrl = headers[hostKey];
     if (!hostUrl) {
-        throw new Error('Unable to determine host');
+        throw new Error('Unable to determine host for async invocation');
+    }
+    delete headers[hostKey];
+
+    const hostParts = hostUrl.split(':');
+    const protocolKey = Object.keys(headers).find(k => 'x-forwarded-proto' === k.toLowerCase());
+    let isHttps = true;
+    if (headers[protocolKey]) {
+        isHttps = headers[protocolKey].toLowerCase() === 'https';
+        delete headers[protocolKey];
     }
 
-    headers[ASYNC_HEADER] = 'true';
-    const parsedUrl = require('url').parse(hostUrl);
-    const https = parsedUrl.protocol.startsWith('https');
-
     const options = {
-        hostname: parsedUrl.hostname,
-        port: parsedUrl.port || (https ? 443 : 80),
+        hostname: hostParts[0],
+        port: hostParts[1] ? parseInt(hostParts[1]) : (isHttps ? 443 : 80),
         method: 'POST',
         path: '/',
-        headers
+        headers: {...headers, [ASYNC_FULFULLMENT_HEADER]: true}
     };
 
     // Invoke function and ignore response
-    const lib = require(https ? 'https' : 'http');
+    const lib = isHttps ? https : http;
     await new Promise((resolve, reject) => {
         const req = lib.request(options);
-        req.on('error', (err) => {
+        req.on('error', async (err) => {
             // Expect ECONNRESET when request was destroyed
-            if (!(req.destroyed && err.code === 'ECONNRESET')) {
+            if (!(req.destroyed && err['code'] === 'ECONNRESET')) {
+                // Save error to associated function invocation request
+                await saveFnInvocationError(logger, fnInvocation, err.message);
+                
                 reject(err);
             }
         });
@@ -325,7 +367,7 @@ async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promis
         
         // Flush and finishes sending the request
         req.end(() => {
-            logger.info('### Forwarded async request');
+            logger.info('Forwarded async request');
 
             // Forget response and destroy the socket
             req.destroy();
@@ -347,21 +389,50 @@ export default async function systemFn(message: any): Promise<any> {
 
     const requestId = headers['Ce-Id'] || headers['X-Request-Id'];
     const requestLogger = createLogger(requestId);
+    let isAsync = false;
+    let fnInvocation: FunctionInvocationRequest;
     try {
+        // Create function param objects from request
+        const [event, context, logger] = await applySfFnMiddleware({payload, headers}, requestLogger);
+
         // If initial async request, invoke function again and release request
-        if (isInitialAsyncRequest(payload, headers)) {
-            requestLogger.info('### Received initial async request');
-            await invokeAsyncFn(requestLogger, payload, headers);
-            requestLogger.info('### Return initial async request');
-            // TODO: How to send 202?
-            return '';
+        isAsync = isAsyncRequest(event.type);
+        fnInvocation = context[FN_INVOCATION];
+        if (isAsync) {
+            if (!headers[ASYNC_FULFULLMENT_HEADER]) {
+                requestLogger.info('Received initial async request');
+                await invokeAsyncFn(requestLogger, payload, headers, fnInvocation);
+                // Function invoked on forwarded request; release initial client request
+                return Message.builder()
+                    .addHeader('content-type', 'application/json')
+                    .addHeader('x-http-status', '202')
+                    .payload('')
+                    .build();
+            } else {
+                requestLogger.info('Fulfilling async request');
+            }
         }
 
-        const middlewareResult = await applySfFxMiddleware({payload, headers}, requestLogger);
-        const result = await userFn(...middlewareResult);
+        let result: any;
+        try {
+            // Invoke requested function
+            result = await userFn([event, context, logger]);
 
-        // Currently, riff doesn't support undefined or null return values
-        return result || '';
+            // If async, save result to associated function invocation request
+            if (isAsync) {
+                await saveFnInvocation(logger, fnInvocation, result);
+            }
+
+            // Currently, riff doesn't support undefined or null return values
+            return result || '';
+        } catch (invokeErr) {
+            // If async, save error to associated function invocation request
+            if (isAsync) {
+                await saveFnInvocationError(logger, fnInvocation, invokeErr.message);
+            }
+
+            throw invokeErr;
+        }
     } catch (error) {
         requestLogger.error(error.toString());
         return errorMessage(error)
