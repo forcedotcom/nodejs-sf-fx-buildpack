@@ -220,7 +220,7 @@ describe('Invoke Function Tests', () => {
         return Promise.resolve(null);
     });
 
-    it('should handle async invocation - https', async () => {
+    it('should handle initial async invocation - https', async () => {
         let receivedOptions;
         const mockRequest = new PassThrough();
         const requestWriteSpy = sandbox.stub(mockRequest, 'write');
@@ -258,8 +258,8 @@ describe('Invoke Function Tests', () => {
         return Promise.resolve(null);
     });
 
-    it('should handle async invocation - error', async () => {
-        const host = 'sparrow-1a3ebmr.okra-ms2twzu6no.castle-7d6622.evergreen.space';
+    it('should handle initial async invocation - error', async () => {
+        const host = '127.0.0.1';
         const cloudEventRequest = generateCloudevent(generateData(), true);
         const fnResult = await systemFn(Message.builder()
             .addHeader('content-type', 'application/json')

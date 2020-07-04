@@ -25,14 +25,14 @@ export async function saveFnInvocation(logger: Logger,
     try {
         fnInvocation.status = status;
         fnInvocation.response = response;
-        await fnInvocation.save();
+        return await fnInvocation.save();
     } catch (err) {
         logger.error(`Unable to save function response [${fnInvocation.id}]: ${err.message}`);
     }
 }
 
 export async function saveFnInvocationError(logger: Logger, fnInvocation: FunctionInvocationRequest, response: any): Promise<void> {
-    await saveFnInvocation(logger, fnInvocation, response, FunctionInvocationRequestStatusEnum.Error);
+    return await saveFnInvocation(logger, fnInvocation, response, FunctionInvocationRequestStatusEnum.Error);
 }
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
