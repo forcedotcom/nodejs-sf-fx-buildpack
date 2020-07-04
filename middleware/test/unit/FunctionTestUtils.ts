@@ -1,11 +1,16 @@
 import { Context } from '@salesforce/salesforce-sdk';
 import * as sinon from 'sinon';
+import {
+    ASYNC_CE_TYPE,
+    FN_INVOCATION
+} from '../../lib/constants';
+import { FunctionInvocationRequest } from '../../lib/FunctionInvocationRequest';
 
 export const portHeaderPart = 6666;
 export const hostnameHeaderPart = 'whatever';
 export const hostHeader = `${hostnameHeaderPart}:${portHeaderPart}`;
 export const resource = `http://${hostHeader}`;
-export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false): any => {
+export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false, shouldThrowError = false): any => {
     const userContext = {
         orgDomainUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
         orgId:'00Dxx0000006GoF',
@@ -41,7 +46,8 @@ export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false)
         payload:{
             html:null,
             isLightning:false,
-            url:'https://sffx-dev-ed.localhost.internal.salesforce.com/apex/MyPdfPage'
+            url:'https://sffx-dev-ed.localhost.internal.salesforce.com/apex/MyPdfPage',
+            shouldThrowError
         },
         sfContext
     };
@@ -53,7 +59,7 @@ export const generateCloudevent = (data: any, async = false): any => {
     return {
         id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
         contentType: 'application/json',
-        type: `com.salesforce.function.${async ? 'async' : 'sync'}`,
+        type: async ? ASYNC_CE_TYPE : 'com.salesforce.function.invoke',
         schemaURL: null,
         source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
         time: '2019-11-14T18:13:45.627813Z',
@@ -67,8 +73,8 @@ export const generateRawMiddleWareRequest = (data: any, async = false): any => {
     const rawheaders = {
         'authorization' : 'C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J',
         'content-type' : [ 'application/json' ],
-        'x-forwarded-host' : hostHeader, // test case insensitive lookup
-        'x-forwarded-proto': 'http'
+        X_FORWARDED_HOST : hostHeader, // test case insensitive lookup
+        X_FORWARDED_PROTO: 'http'
     };
     return {
         headers: rawheaders,
@@ -94,10 +100,11 @@ export class FakeFunction {
         this.invokeParams = { context, event };
 
         if (this.doFnInvocation) {
-            context['fnInvocation'].response = '{}';
-            context['fnInvocation'].save();
+            const fnInvocationRequest: FunctionInvocationRequest = context[FN_INVOCATION];
+            fnInvocationRequest.response = '{}';
+            fnInvocationRequest.save();
         }
 
-        return Promise.resolve(null);
+        return Promise.resolve('OK');
     }
 }

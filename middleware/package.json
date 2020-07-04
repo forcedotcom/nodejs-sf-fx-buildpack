@@ -8,7 +8,7 @@
     "node": ">=10.0.0"
   },
   "scripts": {
-    "build": "node_modules/typescript/bin/tsc -p .",
+    "build": "node_modules/typescript/bin/tsc",
     "lint": "eslint './*.ts' 'test/**/*.ts' --ext .ts",
     "start": "node dist/index",
     "test": "cross-env USER_FUNCTION_URI=../middleware/test/fixtures/functions/mock nyc --extension .ts mocha --forbid-only --timeout 99999 -r ts-node/register 'test/unit/**/*.ts'",

@@ -2,7 +2,7 @@ VERSION := "v$$(cat buildpack.toml | grep -m 1 version | sed -e 's/version = //g
 
 #create a tarball that includes bin, ts source, and compiled js
 package: clean build
-	@tar cvzf nodejs-sf-fx-buildpack-$(VERSION).tgz buildpack.toml bin/ middleware/*.ts middleware/*.json middleware/dist/*.js
+	@tar cvzf nodejs-sf-fx-buildpack-$(VERSION).tgz buildpack.toml bin/ middleware/*.ts middleware/*.json middleware/dist/*.js middleware/dist/lib/*.js
 
 #compile middleware ts to js
 build:

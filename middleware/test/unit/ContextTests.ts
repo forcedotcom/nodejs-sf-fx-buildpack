@@ -6,12 +6,10 @@ import * as fs from 'fs';
 import 'mocha';
 import * as sinon from 'sinon';
 
-import * as rewire from 'rewire';
 import {generateData, generateRawMiddleWareRequest} from './FunctionTestUtils';
 
-const middleware = rewire('../../index');
-const applySfFnMiddleware = middleware.__get__('applySfFnMiddleware');
-const FN_INVOCATION = middleware.__get__('FN_INVOCATION');
+import {applySfFnMiddleware} from '../../lib/sfMiddleware';
+import {FN_INVOCATION} from '../../lib/constants';
 
 describe('Context Tests', () => {
     let sandbox: sinon.SinonSandbox;
