@@ -18,7 +18,7 @@
         "pretty": true
     },
     "include": [
-        "./*.ts", 
+        "./*.ts",
         "lib/**/*.ts"
     ]
 }

@@ -4,8 +4,8 @@ const http = require('http');
 const https = require('https');
 import {applySfFnMiddleware} from './lib/sfMiddleware';
 import {
-    FunctionInvocationRequest, 
-    saveFnInvocation, 
+    FunctionInvocationRequest,
+    saveFnInvocation,
     saveFnInvocationError
 } from './lib/FunctionInvocationRequest';
 import {
@@ -89,7 +89,7 @@ async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promis
 
         // Forward original request
         req.write(JSON.stringify(payload));
-        
+
         // Flush and finishes sending the request
         req.end(() => {
             logger.info('Forwarded async request');

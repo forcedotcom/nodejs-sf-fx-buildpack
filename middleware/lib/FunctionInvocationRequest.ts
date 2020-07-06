@@ -14,9 +14,9 @@ export enum FunctionInvocationRequestStatusEnum {
 
 // Save update to FunctionInvocationRequest
 // Does not throw
-export async function saveFnInvocation(logger: Logger, 
-                                       fnInvocation: FunctionInvocationRequest, 
-                                       response: any, 
+export async function saveFnInvocation(logger: Logger,
+                                       fnInvocation: FunctionInvocationRequest,
+                                       response: any,
                                        status: FunctionInvocationRequestStatusEnum = FunctionInvocationRequestStatusEnum.Success): Promise<void> {
     if (!fnInvocation) {
         return;

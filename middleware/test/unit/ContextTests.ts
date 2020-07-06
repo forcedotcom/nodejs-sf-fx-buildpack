@@ -1,4 +1,3 @@
-/* tslint:disable: no-unused-expression */
 import {LoggerLevel} from '@salesforce/core';
 import {ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk';
 import {expect} from 'chai';
@@ -183,9 +182,18 @@ describe('Context Tests', () => {
 
         // Stub out the fs calls made by Secrets
         const fsStat = new fs.Stats();
-        sinon.stub(fsStat, 'isDirectory').returns(true);
-        sinon.stub(fsStat, 'isFile').returns(true);
-        sandbox.stub(fs, 'statSync').returns(fsStat);
+        sandbox.stub(fsStat, 'isDirectory').returns(true);
+        sandbox.stub(fsStat, 'isFile').returns(true);
+        const statSyncOrig = fs.statSync;
+        // Using callsFake here as this repo uses later version of fs.statSync having an API update
+        // which now conflicts w/ the SDK's version.
+        sandbox.stub(fs, 'statSync').callsFake((path) => {
+          if (path === `/platform/services/${sname}/secret` || path === `/platform/services/${sname}/secret/${key}`) {
+            return fsStat;
+          } else {
+            throw new Error('ENOENT');
+          }
+        });
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         sandbox.stub(fs, <any>'readdirSync')
           .withArgs(`/platform/services/${sname}/secret`)
