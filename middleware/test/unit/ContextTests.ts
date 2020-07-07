@@ -1,4 +1,3 @@
-/* tslint:disable: no-unused-expression */
 import {LoggerLevel} from '@salesforce/core';
 import {ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk';
 import {expect} from 'chai';
@@ -6,11 +5,10 @@ import * as fs from 'fs';
 import 'mocha';
 import * as sinon from 'sinon';
 
-import * as rewire from 'rewire';
 import {generateData, generateRawMiddleWareRequest} from './FunctionTestUtils';
 
-const middleware = rewire('../../index');
-const applySfFxMiddleware = middleware.__get__('applySfFxMiddleware');
+import {applySfFnMiddleware} from '../../lib/sfMiddleware';
+import {FN_INVOCATION} from '../../lib/constants';
 
 describe('Context Tests', () => {
     let sandbox: sinon.SinonSandbox;
@@ -79,7 +77,7 @@ describe('Context Tests', () => {
     const getContext = (data: any) : Context => {
         const rawRequest = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFxMiddleware(rawRequest, logger);
+        const mwResult: any = applySfFnMiddleware(rawRequest, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -92,7 +90,7 @@ describe('Context Tests', () => {
         expect(data.context.apiVersion).to.exist;
         expect(data.sfContext.accessToken).to.exist;
         expect(data.sfContext.functionInvocationId).to.exist;
-        const fxInvocationId: string = data.sfContext.functionInvocationId;
+        const fnInvocationId: string = data.sfContext.functionInvocationId;
         const accessToken: string = data.sfContext.accessToken;
 
         const context: Context = getContext(data);
@@ -102,8 +100,8 @@ describe('Context Tests', () => {
         expect(context.org.data).to.exist;
         expect(context.org.unitOfWork).to.exist;
         expect(context.org.unitOfWorkGraph).to.not.exist;       //apiVersion needs to be at least 50.0
-        expect(context['fxInvocation']).to.exist;
-        expect(context['fxInvocation'].id).to.equal(fxInvocationId);
+        expect(context[FN_INVOCATION]).to.exist;
+        expect(context[FN_INVOCATION].id).to.equal(fnInvocationId);
 
         // Validate ConnectionConfig has expected values
         // TODO: Prevent this, somehow.
@@ -140,7 +138,7 @@ describe('Context Tests', () => {
         expect(context.org.data).to.not.exist;
         expect(context.org.unitOfWork).to.not.exist;
         expect(context.org.unitOfWorkGraph).to.not.exist;
-        expect(context['fxInvocation']).to.not.exist;
+        expect(context[FN_INVOCATION]).to.not.exist;
     });
 
     it('validate API version override', () => {
@@ -175,7 +173,7 @@ describe('Context Tests', () => {
         const context: Context = getContext({"payload":{}});
 
         expect(context.org).to.not.exist;
-        expect(context['fxInvocation']).to.not.exist;
+        expect(context[FN_INVOCATION]).to.not.exist;
     });
 
     it('test logger DEBUG level when secret is set', () =>{
@@ -184,13 +182,18 @@ describe('Context Tests', () => {
 
         // Stub out the fs calls made by Secrets
         const fsStat = new fs.Stats();
-        sinon.stub(fsStat, 'isDirectory').returns(true);
-        sinon.stub(fsStat, 'isFile').returns(true);
-        sandbox.stub(fs, 'statSync')
-          .withArgs(`/platform/services/${sname}/secret`)
-          .returns(fsStat)
-          .withArgs(`/platform/services/${sname}/secret/${key}`)
-          .returns(fsStat);
+        sandbox.stub(fsStat, 'isDirectory').returns(true);
+        sandbox.stub(fsStat, 'isFile').returns(true);
+        const statSyncOrig = fs.statSync;
+        // Using callsFake here as this repo uses later version of fs.statSync having an API update
+        // which now conflicts w/ the SDK's version.
+        sandbox.stub(fs, 'statSync').callsFake((path) => {
+          if (path === `/platform/services/${sname}/secret` || path === `/platform/services/${sname}/secret/${key}`) {
+            return fsStat;
+          } else {
+            throw new Error('ENOENT');
+          }
+        });
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
         sandbox.stub(fs, <any>'readdirSync')
           .withArgs(`/platform/services/${sname}/secret`)
@@ -204,7 +207,7 @@ describe('Context Tests', () => {
 
         const rawRequest = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFxMiddleware(rawRequest, logger);
+        const mwResult: any = applySfFnMiddleware(rawRequest, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -225,7 +228,7 @@ describe('Context Tests', () => {
 
         const rawRequest = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFxMiddleware(rawRequest, logger);
+        const mwResult: any = applySfFnMiddleware(rawRequest, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -238,7 +241,7 @@ describe('Context Tests', () => {
         const data = {"someproperty":"whatever"};
         const rawRequest = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFxMiddleware(rawRequest, logger);
+        const mwResult: any = applySfFnMiddleware(rawRequest, logger);
 
         expect(mwResult).to.be.an('array');
         expect(mwResult).to.have.lengthOf(3);

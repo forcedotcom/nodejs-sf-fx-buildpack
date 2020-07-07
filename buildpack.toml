@@ -3,7 +3,7 @@ api = "0.2"
 [buildpack]
 id = "salesforce/nodejs-fn"
 name = "Salesforce NodeJS Function Structured Middleware Buildpack"
-version = "1.5.7"
+version = "1.5.8"
 
 [[stacks]]
 id = "heroku-18"

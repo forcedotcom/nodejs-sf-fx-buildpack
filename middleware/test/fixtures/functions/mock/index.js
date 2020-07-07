@@ -1,5 +1,3 @@
-const sdk = require('@salesforce/salesforce-sdk');
-
 /**
  * Describe Ever-func here.
  *
@@ -13,5 +11,8 @@ const sdk = require('@salesforce/salesforce-sdk');
  *                 to a given execution of a function.
  */
 module.exports = function (event, context, logger) {
+    if (event.data && event.data.shouldThrowError) {
+        throw new Error('FakeError');
+    }
     return {'success': true};
 }

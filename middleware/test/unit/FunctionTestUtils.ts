@@ -1,7 +1,16 @@
-import { Context, Org, User } from '@salesforce/salesforce-sdk';
+import { Context } from '@salesforce/salesforce-sdk';
 import * as sinon from 'sinon';
+import {
+    ASYNC_CE_TYPE,
+    FN_INVOCATION
+} from '../../lib/constants';
+import { FunctionInvocationRequest } from '../../lib/FunctionInvocationRequest';
 
-export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false): any => {
+export const portHeaderPart = 6666;
+export const hostnameHeaderPart = 'whatever';
+export const hostHeader = `${hostnameHeaderPart}:${portHeaderPart}`;
+export const resource = `http://${hostHeader}`;
+export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false, shouldThrowError = false): any => {
     const userContext = {
         orgDomainUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
         orgId:'00Dxx0000006GoF',
@@ -19,7 +28,7 @@ export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false)
         functionInvocationId: '9mdxx00000004ov',
         functionName: 'salesforce/functions/hello',
         requestId: '4SROyqmXwNJ3M40_wnZB1k',
-        resource: 'http://...'
+        resource
     };
 
     if (setAccessToken) {
@@ -37,7 +46,8 @@ export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false)
         payload:{
             html:null,
             isLightning:false,
-            url:'https://sffx-dev-ed.localhost.internal.salesforce.com/apex/MyPdfPage'
+            url:'https://sffx-dev-ed.localhost.internal.salesforce.com/apex/MyPdfPage',
+            shouldThrowError
         },
         sfContext
     };
@@ -45,11 +55,11 @@ export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false)
     return data;
 };
 
-export const generateCloudevent = (data: any): any => {
+export const generateCloudevent = (data: any, async = false): any => {
     return {
         id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
         contentType: 'application/json',
-        type: 'com.salesforce.function.invoke',
+        type: async ? ASYNC_CE_TYPE : 'com.salesforce.function.invoke',
         schemaURL: null,
         source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
         time: '2019-11-14T18:13:45.627813Z',
@@ -58,11 +68,13 @@ export const generateCloudevent = (data: any): any => {
     };
 };
 
-export const generateRawMiddleWareRequest = (data: any): any => {
-    const cloudEvent: any = generateCloudevent(data);
+export const generateRawMiddleWareRequest = (data: any, async = false): any => {
+    const cloudEvent: any = generateCloudevent(data, async);
     const rawheaders = {
         'authorization' : 'C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J',
         'content-type' : [ 'application/json' ],
+        X_FORWARDED_HOST : hostHeader, // test case insensitive lookup
+        X_FORWARDED_PROTO: 'http'
     };
     return {
         headers: rawheaders,
@@ -76,7 +88,7 @@ export class FakeFunction {
     public invokeParams: any;
     public errors: string[];
 
-    constructor(public sandbox: sinon.SinonSandbox, private doFxInvocation: boolean = false) {
+    constructor(public sandbox: sinon.SinonSandbox, private doFnInvocation: boolean = false) {
         this.errors = [];
     }
 
@@ -87,11 +99,12 @@ export class FakeFunction {
     public invoke(event:any, context: Context): Promise<any> {
         this.invokeParams = { context, event };
 
-        if (this.doFxInvocation) {
-            context['fxInvocation'].response = '{}';
-            context['fxInvocation'].save();
+        if (this.doFnInvocation) {
+            const fnInvocationRequest: FunctionInvocationRequest = context[FN_INVOCATION];
+            fnInvocationRequest.response = '{}';
+            fnInvocationRequest.save();
         }
 
-        return Promise.resolve(null);
+        return Promise.resolve('OK');
     }
 }
