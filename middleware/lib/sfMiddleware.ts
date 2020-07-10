@@ -31,9 +31,9 @@ function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<stri
  */
 function createEvent(data: any, headers: any, payload: any): InvocationEvent {
     const specVersion = payload.specversion ? payload.specversion : payload.specVersion;
-    const schemaURL = specVersion === "0.2" ? payload.schemaURL : null;
+    const schemaURL = specVersion === '0.2' ? payload.schemaURL : null;
     let contentType;
-    if (specVersion === "0.2") {
+    if (specVersion === '0.2') {
         contentType = payload.contentType ? payload.contentType : payload.contenttype;
     }
     else {
