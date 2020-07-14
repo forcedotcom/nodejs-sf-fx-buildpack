@@ -56,7 +56,7 @@ export class FunctionInvocationRequest {
         }
 
         if (this.dataApi) {
-            const responseBase64 = Buffer.from(JSON.stringify(this.response)).toString('base64');
+            const responseJson = JSON.stringify(this.response);
 
             try {
                 // Prime pump (W-6841389)
@@ -67,7 +67,9 @@ export class FunctionInvocationRequest {
             }
 
             const fnInvocation = new SObject('FunctionInvocationRequest').withId(this.id);
-            fnInvocation.setValue('ResponseBody', responseBase64);
+            // NOTE: The response goes in the Payload field, NOT in the Response field.
+            // This is a temporary hack for pilot.
+            fnInvocation.setValue('Payload', responseJson);
             if (this.status) {
                 fnInvocation.setValue('Status', this.status.toString());
             }
