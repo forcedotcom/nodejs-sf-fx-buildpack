@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
 import {Constants, APIVersion} from '@salesforce/salesforce-sdk/dist/index';
 import {
@@ -24,29 +25,29 @@ function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<stri
 /**
  * Construct Event from invocation request.
  *
- * @param data    -- function payload
+ * @param isSpec02  -- true if request was given as an older CloudEvent 0.2 spec
+ * @param fnPayload    -- function payload
  * @param headers -- request headers
- * @param payload -- request payload
+ * @param ceBody -- request payload (Cloudevent)
  * @return event
  */
-function createEvent(data: any, headers: any, payload: any): InvocationEvent {
-    const specVersion = payload.specversion ? payload.specversion : payload.specVersion;
-    const schemaURL = specVersion === '0.2' ? payload.schemaURL : null;
+function createEvent(isSpec02: boolean, fnPayload: any, headers: any, ceBody: any): InvocationEvent {
+    const schemaURL = isSpec02 ? ceBody.schemaURL : null;
     let contentType;
-    if (specVersion === '0.2') {
-        contentType = payload.contentType ? payload.contentType : payload.contenttype;
+    if (isSpec02) {
+        contentType = ceBody.contentType ? ceBody.contentType : ceBody.contenttype;
     }
     else {
-        contentType = payload.datacontenttype;
+        contentType = ceBody.datacontenttype;
     }
     return new InvocationEvent(
-        data,
+        fnPayload,
         contentType,
         schemaURL,
-        payload.id,
-        payload.source,
-        payload.time,
-        payload.type,
+        ceBody.id,
+        ceBody.source,
+        ceBody.time,
+        ceBody.type,
         headersToMap(headers)
     );
 }
@@ -151,6 +152,20 @@ function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?
 }
 
 /**
+ * Decode a "context" CloudEvent attribute that has been encoded to be compliant with the 1.0
+ * specification - will arrive as a Base64-encoded-JSON string.
+ * @param attrVal CloudEvent attribute value to decode.
+ * @returns null on empty attrVal, decoded JS Object if successful.
+ */
+function decodeCeAttrib(attrVal: string|undefined): any {
+    if (attrVal != null) {
+        const buf = Buffer.from(attrVal, 'base64');
+        return JSON.parse(buf.toString());
+    }
+    return null;
+}
+
+/**
 * Initialize Salesforce SDK for function invocation.
 *
 * @param request     -- contains {payload, headers}
@@ -176,35 +191,43 @@ export function applySfFnMiddleware(request: any, logger: Logger): Array<any> {
         logger.debug(request);
     }
 
-    const data = request.payload.data;
+    // Pull the relevant fields out of the CloudEvent body, depending on the Spec version
+    const ceBody = request.payload;
+    const specVersion = ceBody.specversion ? ceBody.specversion : ceBody.specVersion;
+    const isSpec02 = specVersion === '0.2';
+    const data = ceBody.data;
     if (!data) {
         throw new Error('Data field of the cloudEvent not provided in the request');
     }
-
-    if (!data.context) {
+    const ceCtx = isSpec02 ? data.context : decodeCeAttrib(ceBody['sfcontext']);
+    const ceFnCtx = isSpec02 ? data.sfContext : decodeCeAttrib(ceBody['sffncontext']);
+    if (!ceCtx) {
         logger.warn('Context not provided in data: context is partially initialize');
     }
 
+    // Customer payload is data.payload for old spec version, data for 1.0+
+    const fnPayload = isSpec02 ? data.payload : data;
+
     // Not all functions will require an accessToken used for org access.
     // The accessToken will not be passed directly to functions, but instead
-    // passed as part of SFContext used in SF middleware to setup API instances.
+    // passed as part of function context used in SF middleware to setup API instances.
     let accessToken: string;
     let functionInvocationId: string;
-    if (data.sfContext) {
-        accessToken = data.sfContext.accessToken || undefined;
-        functionInvocationId = data.sfContext.functionInvocationId || undefined;
-        // Internal only
+    if (ceFnCtx) {
+        accessToken = ceFnCtx.accessToken || undefined;
+        functionInvocationId = ceFnCtx.functionInvocationId || undefined;
+        // Internal only, will be noop for specversion 1.0+
         delete data.sfContext;
     }
 
     // Construct event contain custom payload and details about the function request
-    const event = createEvent(data.payload, request.headers, request.payload);
+    const event = createEvent(isSpec02, fnPayload, request.headers, ceBody);
 
     // Construct invocation context, to be sent to the user function.
-    const context = createContext(request.payload.id,
+    const context = createContext(ceBody.id,
         logger,
         secrets,
-        data.context,
+        ceCtx,
         accessToken,
         functionInvocationId);
 

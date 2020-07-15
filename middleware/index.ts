@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
 const {Message} = require('@projectriff/message');
 const http = require('http');
@@ -44,7 +46,7 @@ function errorMessage(error: Error): any {
         .build();
 }
 
-function isAsyncRequest(type: string) {
+function isAsyncRequest(type: string): boolean {
     return type && type.startsWith(ASYNC_CE_TYPE);
 }
 
