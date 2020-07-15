@@ -18,8 +18,8 @@ import {
     portHeaderPart 
 } from './FunctionTestUtils';
 import { Message } from '@projectriff/message';
-const http = require('http');
-const https = require('https');
+import http = require('http');
+import https = require('https');
 const PassThrough = require('stream').PassThrough;
 import systemFn from '../../index';
 import {applySfFnMiddleware} from '../../lib/sfMiddleware';
@@ -31,6 +31,7 @@ import {
 } from '../../lib/constants';
 import * as fnInvRequest from '../../lib/FunctionInvocationRequest';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 interface PdfEvent {
     html?: string,
     url?:  string,
@@ -281,10 +282,10 @@ describe('Invoke Function Tests', () => {
         saveFnInvocationStub.callsFake(async (logger: Logger, 
             fnInvocation: fnInvRequest.FunctionInvocationRequest, 
             response: any, 
-            status): Promise<void> => {
+            status): Promise<void> => {  // eslint-disable-line
                 gotFnInvocation = fnInvocation;
                 gotResponse = response;
-                return Promise.resolve(null)
+                return Promise.resolve(null);
         });
 
         const cloudEventRequest = generateCloudevent(generateData(), true);
@@ -311,7 +312,7 @@ describe('Invoke Function Tests', () => {
             response: any): Promise<void> => {
                 gotFnInvocation = fnInvocation;
                 gotResponse = response;
-                return Promise.resolve(null)
+                return Promise.resolve(null);
         });
 
         const cloudEventRequest = generateCloudevent(generateData(true, false, true), true);

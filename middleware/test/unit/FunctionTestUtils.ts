@@ -6,6 +6,7 @@ import {
 } from '../../lib/constants';
 import { FunctionInvocationRequest } from '../../lib/FunctionInvocationRequest';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 export const portHeaderPart = 6666;
 export const hostnameHeaderPart = 'whatever';
 export const hostHeader = `${hostnameHeaderPart}:${portHeaderPart}`;
@@ -92,7 +93,7 @@ export class FakeFunction {
         this.errors = [];
     }
 
-    public getName() {
+    public getName(): string {
         return this.constructor.name;
     }
 

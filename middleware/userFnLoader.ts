@@ -1,5 +1,6 @@
 import * as path from "path";
 
+// eslint-disable-next-line
 export default function loadUserFunction(): any {
   const functionPath = process.env.USER_FUNCTION_URI || '/workspace';
   const pjsonPath = path.join(functionPath, 'package.json');

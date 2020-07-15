@@ -1,7 +1,7 @@
 import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
-const {Message} = require('@projectriff/message');
-const http = require('http');
-const https = require('https');
+import Message = require('@projectriff/message');
+import http = require('http');
+import https = require('https');
 import {applySfFnMiddleware} from './lib/sfMiddleware';
 import {
     FunctionInvocationRequest,
@@ -32,7 +32,7 @@ function createLogger(requestID?: string): Logger {
     return logger;
 }
 
-function errorMessage(error: Error): any {
+function errorMessage(error: Error): any {  // eslint-disable-line
     // any error in user-function-space should be considered a 500
     // ensure we send down application/json in this case
     return Message.builder()
@@ -44,11 +44,12 @@ function errorMessage(error: Error): any {
         .build();
 }
 
-function isAsyncRequest(type: string) {
+function isAsyncRequest(type: string): boolean {
     return type && type.startsWith(ASYNC_CE_TYPE);
 }
 
 // Invoke given function again to fulfill async request; response is not handled
+// eslint-disable-next-line
 async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promise<void> {
     // host header is required
     const hostKey = Object.keys(headers).find(k => X_FORWARDED_HOST === k.toLowerCase());
@@ -78,7 +79,7 @@ async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promis
         const expectedErrCode = 'EXPECTED_ECONNRESET';
         const req = lib.request(options);
         req.on('error', async (err) => {
-            if (req.destroyed && err['code'] === expectedErrCode) {
+            if (req['destroyed'] && err['code'] === expectedErrCode) {
                 // Expected to terminate response
                 resolve();
             } else {
@@ -100,16 +101,18 @@ async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promis
             req.destroy(expectedErr);
         });
     });
-};
+}
 
 const userFn = loadUserFunction();
 
-export default async function systemFn(message: any): Promise<any> {
+export default async function systemFn(message: any): Promise<any> {  // eslint-disable-line
     const payload = message['payload'];
 
     // Remap riff headers to a standard JS object
     const headers = message['headers'].toRiffHeaders();
-    Object.keys(headers).map((key: string) => {headers[key] = message['headers'].getValue(key)});
+    Object.keys(headers).map((key: string) => {
+        headers[key] = message['headers'].getValue(key);
+    });
 
     const requestId = headers['Ce-Id'] || headers['X-Request-Id'];
     const requestLogger = createLogger(requestId);
@@ -132,7 +135,7 @@ export default async function systemFn(message: any): Promise<any> {
             }
         }
 
-        let result: any;
+        let result: any;  // eslint-disable-line
         let fnInvocation: FunctionInvocationRequest;
         try {
             // Create function param objects from request
@@ -159,7 +162,7 @@ export default async function systemFn(message: any): Promise<any> {
         }
     } catch (error) {
         requestLogger.error(error.toString());
-        return errorMessage(error)
+        return errorMessage(error);
     }
 }
 
