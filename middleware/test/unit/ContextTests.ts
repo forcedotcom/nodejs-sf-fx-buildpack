@@ -60,6 +60,7 @@ describe('Context Tests', () => {
         expect(event.type).to.not.be.undefined;
         expect(event.source).to.not.be.undefined;
         expect(event.dataContentType).to.not.be.undefined;
+        expect(event.dataContentType).to.equal('application/json');
         expect(event.dataSchema).to.not.be.undefined;
         expect(event.data).to.not.be.undefined;
         expect(event.headers).to.not.be.undefined;
