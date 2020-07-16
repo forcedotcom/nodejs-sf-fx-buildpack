@@ -199,8 +199,8 @@ export function applySfFnMiddleware(request: any, logger: Logger): Array<any> {
     if (!data) {
         throw new Error('Data field of the cloudEvent not provided in the request');
     }
-    const ceCtx = isSpec02 ? data.context : decodeCeAttrib(ceBody['sfcontext']);
-    const ceFnCtx = isSpec02 ? data.sfContext : decodeCeAttrib(ceBody['sffncontext']);
+    const ceCtx = isSpec02 ? data.context : decodeCeAttrib(ceBody.sfcontext);
+    const ceFnCtx = isSpec02 ? data.sfContext : decodeCeAttrib(ceBody.sffncontext);
     if (!ceCtx) {
         logger.warn('Context not provided in data: context is partially initialize');
     }
