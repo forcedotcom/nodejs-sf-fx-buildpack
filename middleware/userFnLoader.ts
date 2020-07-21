@@ -3,7 +3,7 @@ import * as path from "path";
 export default function loadUserFunction(): any {
   const functionPath = process.env.USER_FUNCTION_URI || '/workspace';
   const pjsonPath = path.join(functionPath, 'package.json');
-  let main;
+  let main = '';
   try {
     main = require(pjsonPath).main;
   } catch (e) {
