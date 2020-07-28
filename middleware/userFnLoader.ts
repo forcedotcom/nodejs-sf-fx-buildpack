@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as path from "path";
 
 export default function loadUserFunction(): any {

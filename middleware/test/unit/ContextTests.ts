@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {LoggerLevel} from '@salesforce/core';
 import {ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk';
 import {expect} from 'chai';
@@ -21,7 +22,7 @@ describe('Context Tests', () => {
         sandbox.restore();
     });
 
-    const validateContext = (data: any, context: Context, hasOnBehalfOfUserId = false) => {
+    const validateContext = (data: any, context: Context, hasOnBehalfOfUserId = false): void => {
         expect(context.org.apiVersion).to.exist;
         expect(context.org.apiVersion).to.equal(Constants.CURRENT_API_VERSION);
 
@@ -48,7 +49,7 @@ describe('Context Tests', () => {
      * @param expectedPayload
      * @param middlewareResult
      */
-    const validateApplyMiddleWareResult = (data: any, middlewareResult : any) => {
+    const validateApplyMiddleWareResult = (data: any, middlewareResult : any): void => {
         expect(middlewareResult).to.be.an('array');
         expect(middlewareResult).to.have.lengthOf(3);
         expect(middlewareResult[0]).to.exist;
@@ -185,7 +186,7 @@ describe('Context Tests', () => {
         const fsStat = new fs.Stats();
         sandbox.stub(fsStat, 'isDirectory').returns(true);
         sandbox.stub(fsStat, 'isFile').returns(true);
-        const statSyncOrig = fs.statSync;
+
         // Using callsFake here as this repo uses later version of fs.statSync having an API update
         // which now conflicts w/ the SDK's version.
         sandbox.stub(fs, 'statSync').callsFake((path) => {

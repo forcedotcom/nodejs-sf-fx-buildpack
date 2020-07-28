@@ -199,7 +199,7 @@ export default async function systemFn(message: any): Promise<any> {
         }
     } catch (error) {
         requestLogger.error(error.toString());
-        return errorMessage(error)
+        return errorMessage(error);
     }
 }
 
