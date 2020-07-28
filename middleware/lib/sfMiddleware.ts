@@ -16,6 +16,7 @@ import {
 } from '@salesforce/salesforce-sdk/dist/functions';
 import { FunctionInvocationRequest } from './FunctionInvocationRequest';
 import {FN_INVOCATION} from './constants';
+import { CloudEvent } from 'cloudevents-sdk/lib/cloudevent';
 
 function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<string>> {
     const headersMap: Map<string, ReadonlyArray<string>> = new Map(Object.entries(headers));
@@ -25,29 +26,22 @@ function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<stri
 /**
  * Construct Event from invocation request.
  *
- * @param isSpec02  -- true if request was given as an older CloudEvent 0.2 spec
- * @param fnPayload    -- function payload
- * @param headers -- request headers
- * @param ceBody -- request payload (Cloudevent)
- * @return event
+ * @param isSpec1  -- true if request was given as newer Cloudevents 1.0 spec
+ * @param fnPayload -- function payload
+ * @param headers -- request headers with lower-cased keys
+ * @param cloudEvent -- parsed request input CloudEvent
+ * @return an InvocationEvent
  */
-function createEvent(isSpec02: boolean, fnPayload: any, headers: any, ceBody: any): InvocationEvent {
-    const schemaURL = isSpec02 ? ceBody.schemaURL : null;
-    let contentType;
-    if (isSpec02) {
-        contentType = ceBody.contentType ? ceBody.contentType : ceBody.contenttype;
-    }
-    else {
-        contentType = ceBody.datacontenttype;
-    }
+function createEvent(isSpec1: boolean, fnPayload: any, headers: ReadonlyMap<string,string>, cloudEvent: CloudEvent): InvocationEvent {
+    const schemaURL = isSpec1 ? null : cloudEvent.schemaURL;
     return new InvocationEvent(
         fnPayload,
-        contentType,
+        cloudEvent.dataContentType,
         schemaURL,
-        ceBody.id,
-        ceBody.source,
-        ceBody.time,
-        ceBody.type,
+        cloudEvent.id,
+        cloudEvent.source,
+        cloudEvent.time,
+        cloudEvent.type,
         headersToMap(headers)
     );
 }
@@ -168,13 +162,14 @@ function decodeCeAttrib(attrVal: string|undefined): any {
 /**
 * Initialize Salesforce SDK for function invocation.
 *
-* @param request     -- contains {payload, headers}
+* @param cloudEvent  -- parsed CloudEvent from input request
+* @param headers     -- headers with lower-case keys
 * @param logger      -- Logger
 * @return returnArgs -- array of arguments that make-up the user functions arguments
 */
-export function applySfFnMiddleware(request: any, logger: Logger): Array<any> {
+export function applySfFnMiddleware(cloudEvent: CloudEvent, headers: ReadonlyMap<string,string>, logger: Logger): Array<any> {
     // Validate the input request
-    if (!request) {
+    if (!(cloudEvent && headers)) {
         throw new Error('Request Data not provided');
     }
 
@@ -188,25 +183,24 @@ export function applySfFnMiddleware(request: any, logger: Logger): Array<any> {
         //change the logger level, so any subsequent user function's logger.debug would log as well
         logger.setLevel(LoggerLevel.DEBUG);
         logger.debug('debug raw request in middleware');
-        logger.debug(request);
+        logger.debug(`headers=${JSON.stringify(headers)}`);
+        logger.debug(cloudEvent);
     }
 
-    // Pull the relevant fields out of the CloudEvent body, depending on the Spec version
-    const ceBody = request.payload;
-    const specVersion = ceBody.specversion ? ceBody.specversion : ceBody.specVersion;
-    const isSpec02 = specVersion === '0.2';
-    const data = ceBody.data;
+    // Pull the relevant fields out of the CloudEvent body and headers, depending on the Spec version
+    const isSpec1 = parseInt(cloudEvent.specversion.split('.')[0]) >= 1;
+    const data = cloudEvent.data;
     if (!data) {
         throw new Error('Data field of the cloudEvent not provided in the request');
     }
-    const ceCtx = isSpec02 ? data.context : decodeCeAttrib(ceBody.sfcontext);
-    const ceFnCtx = isSpec02 ? data.sfContext : decodeCeAttrib(ceBody.sffncontext);
+    const ceCtx = isSpec1 ? decodeCeAttrib(cloudEvent.getExtensions()['sfcontext']) : data.context;
+    const ceFnCtx = isSpec1  ?decodeCeAttrib(cloudEvent.getExtensions()['sffncontext']) : data.sfContext;
     if (!ceCtx) {
-        logger.warn('Context not provided in data: context is partially initialize');
+        logger.warn('Context not provided in data: context is partially initialized');
     }
 
     // Customer payload is data.payload for old spec version, data for 1.0+
-    const fnPayload = isSpec02 ? data.payload : data;
+    const fnPayload = isSpec1 ? data : data.payload;
 
     // Not all functions will require an accessToken used for org access.
     // The accessToken will not be passed directly to functions, but instead
@@ -221,10 +215,10 @@ export function applySfFnMiddleware(request: any, logger: Logger): Array<any> {
     }
 
     // Construct event contain custom payload and details about the function request
-    const event = createEvent(isSpec02, fnPayload, request.headers, ceBody);
+    const event = createEvent(isSpec1, fnPayload, headers, cloudEvent);
 
     // Construct invocation context, to be sent to the user function.
-    const context = createContext(ceBody.id,
+    const context = createContext(cloudEvent.id,
         logger,
         secrets,
         ceCtx,
