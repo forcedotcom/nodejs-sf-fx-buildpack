@@ -77,9 +77,9 @@ describe('Context Tests', () => {
     };
 
     const getContext = (data: any) : Context => {
-        const rawRequest = generateRawMiddleWareRequest(data);
+        const [cloudEvent, headers] = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFnMiddleware(rawRequest, logger);
+        const mwResult: any = applySfFnMiddleware(cloudEvent, headers, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -207,9 +207,9 @@ describe('Context Tests', () => {
         const data = generateData(true);
         expect(data.context).to.exist;
 
-        const rawRequest = generateRawMiddleWareRequest(data);
+        const [cloudEvent, headers] = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFnMiddleware(rawRequest, logger);
+        const mwResult: any = applySfFnMiddleware(cloudEvent, headers, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -228,9 +228,9 @@ describe('Context Tests', () => {
         const data = generateData(true);
         expect(data.context).to.exist;
 
-        const rawRequest = generateRawMiddleWareRequest(data);
+        const [cloudEvent, headers] = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFnMiddleware(rawRequest, logger);
+        const mwResult: any = applySfFnMiddleware(cloudEvent, headers, logger);
         validateApplyMiddleWareResult(data, mwResult);
 
         const context: Context = mwResult[1] as Context;
@@ -241,9 +241,9 @@ describe('Context Tests', () => {
 
     it('expect custom payload data not available', () => {
         const data = {"someproperty":"whatever"};
-        const rawRequest = generateRawMiddleWareRequest(data);
+        const [cloudEvent, headers] = generateRawMiddleWareRequest(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
-        const mwResult: any = applySfFnMiddleware(rawRequest, logger);
+        const mwResult: any = applySfFnMiddleware(cloudEvent, headers, logger);
 
         expect(mwResult).to.be.an('array');
         expect(mwResult).to.have.lengthOf(3);
