@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
-import {HTTPReceiver} from 'cloudevents-sdk';
+import {CloudEvent} from 'cloudevents-sdk/lib/cloudevent';
+import {HTTPReceiver} from 'cloudevents-sdk/lib/bindings/http/http_receiver';
 const {Message} = require('@projectriff/message');
 const http = require('http');
 const https = require('https');
@@ -19,7 +20,6 @@ import {
     X_FORWARDED_PROTO
 } from './lib/constants';
 import loadUserFunction from './userFnLoader';
-import { CloudEvent } from 'cloudevents-sdk/lib/cloudevent';
 
 const httpReceiver = new HTTPReceiver();
 
@@ -54,19 +54,17 @@ function isAsyncRequest(type: string): boolean {
 }
 
 // Invoke given function again to fulfill async request; response is not handled
-async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promise<void> {
+async function invokeAsyncFn(logger: Logger, cloudEvent: CloudEvent, headers: any): Promise<void> {
     // host header is required.  Headers are already convered to lower-case in systemFn.
-    const hostKey = headers[X_FORWARDED_HOST];
-    const hostUrl = headers[hostKey];
+    const hostUrl = headers[X_FORWARDED_HOST];
     if (!hostUrl) {
         throw new Error('Unable to determine host for async invocation');
     }
 
     const hostParts = hostUrl.split(':');
-    const protocolKey = headers[X_FORWARDED_PROTO];
     let isHttps = true;
-    if (headers[protocolKey]) {
-        isHttps = headers[protocolKey].toLowerCase() === 'https';
+    if (headers[X_FORWARDED_PROTO]) {
+        isHttps = headers[X_FORWARDED_PROTO].toLowerCase() === 'https';
     }
 
     const options = {
@@ -93,7 +91,7 @@ async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promis
         });
 
         // Forward original request
-        req.write(JSON.stringify(payload));
+        req.write(cloudEvent.toString());
 
         // Flush and finishes sending the request
         req.end(() => {
@@ -144,12 +142,12 @@ export default async function systemFn(message: any): Promise<any> {
     try {
         cloudEvent = httpReceiver.accept(headers, bodyPayload);
     } catch(parseErr) {
-        requestLogger.fatal(`Failed to parse input body as CloudEvent: ${bodyPayload}`);
+        requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body=${JSON.stringify(bodyPayload)}`);
         requestLogger.fatal(parseErr);
         return Message.builder()
             .addHeader('content-type', 'application/json')
             .addHeader('x-http-status', '400')
-            .payload(JSON.stringify({error: parseErr.toStrin()}))
+            .payload(JSON.stringify({error: parseErr.toString()}))
             .build();
     }
 
