@@ -111,7 +111,7 @@ async function invokeAsyncFn(logger: Logger, cloudEvent: CloudEvent, headers: an
  *
  * @param message riff Message
  */
-function toLowerCaseKeyHeaders(message: any): ReadonlyMap<string,string> {
+function toLowerCaseKeyHeaders(message: any): Map<string,string> {
     const hdrs = message['headers'];
     const hmap = new Map<string,string>();
     Object.keys(hdrs.toRiffHeaders()).forEach((key) => {
@@ -119,6 +119,33 @@ function toLowerCaseKeyHeaders(message: any): ReadonlyMap<string,string> {
         hmap[lcKey] = hdrs.getValue(key);
     });
     return hmap;
+}
+
+// Used in parseCloudEvent to relocate 0.2-spec properties to 0.3-spec names
+function _mv(obj: any, fromKey: string, toKey: string, newVal: any = undefined): any {
+    if (newVal != null) {
+        obj[toKey] = newVal;
+    } else if (fromKey in obj && obj[fromKey] != null) {
+        obj[toKey] = obj[fromKey];
+    }
+    delete obj[fromKey];
+    return obj;
+}
+
+/**
+ * Parse input header and body into Cloudevents specification
+ */
+function parseCloudEvent(logger: Logger, headers: Map<string,string>, body: any): CloudEvent {
+    // Core API 48.0 and below send an 0.2-format CloudEvent that needs to be reformatted
+    if ('specVersion' in body && '0.2' === body['specVersion']) {
+        _mv(body, 'specVersion', 'specversion', '0.3');
+        _mv(body, 'contentType', 'datacontenttype');
+        _mv(body, 'schemaURL', 'schemaurl');
+        headers['content-type'] = 'application/cloudevents+json';
+        logger.info('Translated cloudevent 0.2 to 0.3 format');
+    }
+    // make a clone of the body - cloudevents sdk deletes keys as it parses
+    return httpReceiver.accept(headers, Object.create(body));
 }
 
 const userFn = loadUserFunction();
@@ -137,10 +164,10 @@ export default async function systemFn(message: any): Promise<any> {
     const requestId = headers['ce-id'] || headers['x-request-id'] || bodyPayload['id'];
     const requestLogger = createLogger(requestId);
   
-    // Parse input according to Cloudevents 0.3 or 1.0 specification
+    // Parse input according to Cloudevents 0.2, 0.3 or 1.0 specification
     let cloudEvent: CloudEvent;
     try {
-        cloudEvent = httpReceiver.accept(headers, bodyPayload);
+        cloudEvent = parseCloudEvent(requestLogger, headers, bodyPayload);
     } catch(parseErr) {
         requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body=${JSON.stringify(bodyPayload)}`);
         requestLogger.fatal(parseErr);
@@ -158,7 +185,7 @@ export default async function systemFn(message: any): Promise<any> {
         if (isAsync) {
             if (!headers[ASYNC_FULFILL_HEADER]) {
                 requestLogger.info('Received initial async request');
-                await invokeAsyncFn(requestLogger, bodyPayload, headers);
+                await invokeAsyncFn(requestLogger, cloudEvent, headers);
                 // Function invoked on forwarded request; release initial client request
                 return Message.builder()
                     .addHeader('content-type', 'application/json')
