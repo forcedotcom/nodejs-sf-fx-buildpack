@@ -169,7 +169,8 @@ export default async function systemFn(message: any): Promise<any> {
     try {
         cloudEvent = parseCloudEvent(requestLogger, headers, bodyPayload);
     } catch(parseErr) {
-        requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body=${JSON.stringify(bodyPayload)}`);
+        // Only log toplevel input keys since values can contain credentials or PII
+        requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body keys=${Object.keys(bodyPayload)}`);
         requestLogger.fatal(parseErr);
         return Message.builder()
             .addHeader('content-type', 'application/json')
