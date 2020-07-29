@@ -136,6 +136,8 @@ function _mv(obj: any, fromKey: string, toKey: string, newVal: any = undefined):
  * Parse input header and body into Cloudevents specification
  */
 function parseCloudEvent(logger: Logger, headers: Map<string,string>, body: any): CloudEvent {
+    const ctype: string = (headers['content-type'] || '').toLowerCase();
+
     // Core API 48.0 and below send an 0.2-format CloudEvent that needs to be reformatted
     if ('specVersion' in body && '0.2' === body['specVersion']) {
         _mv(body, 'specVersion', 'specversion', '0.3');
@@ -143,6 +145,10 @@ function parseCloudEvent(logger: Logger, headers: Map<string,string>, body: any)
         _mv(body, 'schemaURL', 'schemaurl');
         headers['content-type'] = 'application/cloudevents+json';
         logger.info('Translated cloudevent 0.2 to 0.3 format');
+    // Initial deployment of Core API 50.0 send the wrong content-type, need to adjust
+    } else if (ctype.includes('application/json') && 'specversion' in body) {
+        headers['content-type'] = 'application/cloudevents+json';
+        logger.info('Forced content-type to: application/cloudevents+json');
     }
     // make a clone of the body - cloudevents sdk deletes keys as it parses
     return httpReceiver.accept(headers, Object.create(body));
