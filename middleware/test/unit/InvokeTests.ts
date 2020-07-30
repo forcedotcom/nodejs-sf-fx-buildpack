@@ -1,4 +1,5 @@
-/* tslint:disable: no-unused-expression */
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-var-requires */
 import { assert, expect, use } from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import 'mocha';
@@ -285,10 +286,10 @@ describe('Invoke Function Tests', () => {
             saveFnInvocationStub.callsFake(async (logger: Logger,
                 fnInvocation: fnInvRequest.FunctionInvocationRequest,
                 response: any,
-                status): Promise<void> => {
+                status): Promise<void> => {  // eslint-disable-line @typescript-eslint/no-unused-vars
                     gotFnInvocation = fnInvocation;
                     gotResponse = response;
-                    return Promise.resolve(null)
+                    return Promise.resolve(null);
             });
 
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
@@ -315,7 +316,7 @@ describe('Invoke Function Tests', () => {
                 response: any): Promise<void> => {
                     gotFnInvocation = fnInvocation;
                     gotResponse = response;
-                    return Promise.resolve(null)
+                    return Promise.resolve(null);
             });
 
             const cloudEventRequest = generateCloudevent(generateData(true, false, true), true, specVersion);
@@ -336,5 +337,5 @@ describe('Invoke Function Tests', () => {
 
             return Promise.resolve(null);
         });
-    })
+    });
 });

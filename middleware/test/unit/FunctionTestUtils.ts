@@ -5,6 +5,7 @@ import {
     FN_INVOCATION
 } from '../../lib/constants';
 import { FunctionInvocationRequest } from '../../lib/FunctionInvocationRequest';
+import { CloudEvent } from 'cloudevents-sdk/lib/cloudevent';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const portHeaderPart = 6666;
@@ -63,48 +64,39 @@ export const encodeCeAttrib = (toEncode: any): string => {
     return Buffer.from(asJson).toString('base64');
 };
 
-export const generateCloudevent = (data: any, async = false, specVersion = '0.2'): any => {
-    if (specVersion === '0.2') {
-        return {
-            id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
-            contentType: 'application/json',
-            type: async ? ASYNC_CE_TYPE : 'com.salesforce.function.invoke',
-            schemaURL: null,
-            source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
-            time: '2019-11-14T18:13:45.627813Z',
-            specVersion: specVersion,
-            data
-        };
+export const generateCloudevent = (data: any, async = false, specVersion = '0.3'): CloudEvent => {
+    const ce = new CloudEvent({
+        specversion: specVersion,
+        id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
+        dataContentType: 'application/json',
+        type: async ? ASYNC_CE_TYPE : 'com.salesforce.function.invoke',
+        schemaURL: null,
+        source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
+        time: '2019-11-14T18:13:45.627813Z',
+        data: {}
+    });
+    if (specVersion === '0.3') {
+        ce.data = data;
     }
     else {
         // A 1.0+ spec CloudEvent will have ONLY the customer data in the data attribute.  Contexts are
         // base64-encoded-json extension attributes.
-        return {
-            id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
-            datacontenttype: 'application/json',
-            type: async ? ASYNC_CE_TYPE : 'com.salesforce.function.invoke',
-            source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
-            time: '2019-11-14T18:13:45.627813Z',
-            specversion: specVersion,
-            sfcontext: encodeCeAttrib(data.context),
-            sffncontext: encodeCeAttrib(data.sfContext),
-            data: data.payload
-        };
+        ce.addExtension('sfcontext', encodeCeAttrib(data.context));
+        ce.addExtension('sffncontext', encodeCeAttrib(data.sfContext));
+        ce.data = data.payload;
     }
+    return ce;
 };
 
-export const generateRawMiddleWareRequest = (data: any, async = false): any => {
-    const cloudEvent: any = generateCloudevent(data, async);
+export const generateRawMiddleWareRequest = (data: any, async = false): [CloudEvent, ReadonlyMap<string,string>] => {
+    const cloudEvent: CloudEvent = generateCloudevent(data, async);
     const rawheaders = {
         'authorization' : 'C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J',
-        'content-type' : [ 'application/json' ],
+        'content-type' : 'application/json',
         X_FORWARDED_HOST : hostHeader, // test case insensitive lookup
         X_FORWARDED_PROTO: 'http'
     };
-    return {
-        headers: rawheaders,
-        payload: cloudEvent
-    };
+    return [cloudEvent, new Map(Object.entries(rawheaders))];
 };
 
 export class FakeFunction {

@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
+import {CloudEvent} from 'cloudevents-sdk/lib/cloudevent';
+import {HTTPReceiver} from 'cloudevents-sdk/lib/bindings/http/http_receiver';
 const {Message} = require('@projectriff/message');
 const http = require('http');
 const https = require('https');
@@ -19,6 +21,7 @@ import {
 } from './lib/constants';
 import loadUserFunction from './userFnLoader';
 
+const httpReceiver = new HTTPReceiver();
 
 function createLogger(requestID?: string): Logger {
     const logger = new Logger('Evergreen Logger');
@@ -51,19 +54,17 @@ function isAsyncRequest(type: string): boolean {
 }
 
 // Invoke given function again to fulfill async request; response is not handled
-async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promise<void> {
-    // host header is required
-    const hostKey = Object.keys(headers).find(k => X_FORWARDED_HOST === k.toLowerCase());
-    const hostUrl = headers[hostKey];
+async function invokeAsyncFn(logger: Logger, cloudEvent: CloudEvent, headers: any): Promise<void> {
+    // host header is required.  Headers are already convered to lower-case in systemFn.
+    const hostUrl = headers[X_FORWARDED_HOST];
     if (!hostUrl) {
         throw new Error('Unable to determine host for async invocation');
     }
 
     const hostParts = hostUrl.split(':');
-    const protocolKey = Object.keys(headers).find(k => X_FORWARDED_PROTO === k.toLowerCase());
     let isHttps = true;
-    if (headers[protocolKey]) {
-        isHttps = headers[protocolKey].toLowerCase() === 'https';
+    if (headers[X_FORWARDED_PROTO]) {
+        isHttps = headers[X_FORWARDED_PROTO].toLowerCase() === 'https';
     }
 
     const options = {
@@ -90,7 +91,7 @@ async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promis
         });
 
         // Forward original request
-        req.write(JSON.stringify(payload));
+        req.write(cloudEvent.toString());
 
         // Flush and finishes sending the request
         req.end(() => {
@@ -102,27 +103,98 @@ async function invokeAsyncFn(logger: Logger, payload: any, headers: any): Promis
             req.destroy(expectedErr);
         });
     });
-};
+}
+
+/**
+ * Take all input headers and convert them to map of lower-case key
+ * to input string value.
+ *
+ * @param message riff Message
+ */
+function toLowerCaseKeyHeaders(message: any): Map<string,string> {
+    const hdrs = message['headers'];
+    const hmap = new Map<string,string>();
+    Object.keys(hdrs.toRiffHeaders()).forEach((key) => {
+        const lcKey = key.toLowerCase();
+        hmap[lcKey] = hdrs.getValue(key);
+    });
+    return hmap;
+}
+
+// Used in parseCloudEvent to relocate 0.2-spec properties to 0.3-spec names
+function _mv(obj: any, fromKey: string, toKey: string, newVal: any = undefined): any {
+    if (newVal != null) {
+        obj[toKey] = newVal;
+    } else if (fromKey in obj && obj[fromKey] != null) {
+        obj[toKey] = obj[fromKey];
+    }
+    delete obj[fromKey];
+    return obj;
+}
+
+/**
+ * Parse input header and body into Cloudevents specification
+ */
+function parseCloudEvent(logger: Logger, headers: Map<string,string>, body: any): CloudEvent {
+    const ctype: string = (headers['content-type'] || '').toLowerCase();
+
+    // Core API 48.0 and below send an 0.2-format CloudEvent that needs to be reformatted
+    if ('specVersion' in body && '0.2' === body['specVersion']) {
+        _mv(body, 'specVersion', 'specversion', '0.3');
+        _mv(body, 'contentType', 'datacontenttype');
+        _mv(body, 'schemaURL', 'schemaurl');
+        headers['content-type'] = 'application/cloudevents+json';
+        logger.info('Translated cloudevent 0.2 to 0.3 format');
+
+        // Initial deployment of Core API 50.0 send the wrong content-type, need to adjust
+    } else if (ctype.includes('application/json') && 'specversion' in body) {
+        headers['content-type'] = 'application/cloudevents+json';
+        logger.info('Forced content-type to: application/cloudevents+json');
+    }
+
+    // make a clone of the body - cloudevents sdk deletes keys as it parses
+    return httpReceiver.accept(headers, Object.assign({}, body));
+}
 
 const userFn = loadUserFunction();
 
 export default async function systemFn(message: any): Promise<any> {
-    const payload = message['payload'];
+    // Remap riff headers to a standard JS object with lower-case keys
+    const headers = toLowerCaseKeyHeaders(message);
 
-    // Remap riff headers to a standard JS object
-    const headers = message['headers'].toRiffHeaders();
-    Object.keys(headers).map((key: string) => {headers[key] = message['headers'].getValue(key)});
+    // evergreen:function:invoke includes an extra 'data' level for BinaryHTTP format
+    let bodyPayload: any = message['payload'];
+    if ('data' in bodyPayload && 'ce-id' in headers && headers['ce-specversion'] === '0.3') {
+        bodyPayload = bodyPayload['data'];
+    }
 
-    const requestId = headers['Ce-Id'] || headers['X-Request-Id'];
+    // Initialize logger with request ID
+    const requestId = headers['ce-id'] || headers['x-request-id'] || bodyPayload['id'];
     const requestLogger = createLogger(requestId);
+  
+    // Parse input according to Cloudevents 0.2, 0.3 or 1.0 specification
+    let cloudEvent: CloudEvent;
+    try {
+        cloudEvent = parseCloudEvent(requestLogger, headers, bodyPayload);
+    } catch(parseErr) {
+        // Only log toplevel input keys since values can contain credentials or PII
+        requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body keys=${Object.keys(bodyPayload)}`);
+        requestLogger.fatal(parseErr);
+        return Message.builder()
+            .addHeader('content-type', 'application/json')
+            .addHeader('x-http-status', '400')
+            .payload(JSON.stringify({error: parseErr.toString()}))
+            .build();
+    }
+
     let isAsync = false;
     try {
         // If initial async request, invoke function again and release request
-        isAsync = isAsyncRequest(payload.type);
+        isAsync = isAsyncRequest(cloudEvent.type);
         if (isAsync) {
             if (!headers[ASYNC_FULFILL_HEADER]) {
                 requestLogger.info('Received initial async request');
-                await invokeAsyncFn(requestLogger, payload, headers);
+                await invokeAsyncFn(requestLogger, cloudEvent, headers);
                 // Function invoked on forwarded request; release initial client request
                 return Message.builder()
                     .addHeader('content-type', 'application/json')
@@ -138,7 +210,7 @@ export default async function systemFn(message: any): Promise<any> {
         let fnInvocation: FunctionInvocationRequest;
         try {
             // Create function param objects from request
-            const [event, context, logger] = applySfFnMiddleware({payload, headers}, requestLogger);
+            const [event, context, logger] = applySfFnMiddleware(cloudEvent, headers, requestLogger);
             fnInvocation = context[FN_INVOCATION];
 
             // Invoke requested function
@@ -161,7 +233,7 @@ export default async function systemFn(message: any): Promise<any> {
         }
     } catch (error) {
         requestLogger.error(error.toString());
-        return errorMessage(error)
+        return errorMessage(error);
     }
 }
 
