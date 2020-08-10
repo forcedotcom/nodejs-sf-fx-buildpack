@@ -67,7 +67,7 @@ function createUser(userContext: any): User {
 * @param logger -- logger to use in case of secret load errors
 * @return secrets loader/cache
 */
-function createSecrets(logger: Logger): Secrets {
+function createSecrets(logger: Logger | any): Secrets {
     return new Secrets(logger);
 }
 
@@ -77,7 +77,7 @@ function createSecrets(logger: Logger): Secrets {
 * @param reqContext
 * @return org
 */
-function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
+function createOrg(logger: Logger | any, reqContext: any, accessToken?: string): Org {
     const userContext = reqContext.userContext;
     if (!userContext) {
         const message = `UserContext not provided: ${JSON.stringify(reqContext)}`;
@@ -127,7 +127,7 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
 * @param functionInvocationId -- FunctionInvocationRequest ID, if applicable
 * @return context
 */
-function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?: any,
+function createContext(id: string, logger: Logger | any, secrets: Secrets, reqContext?: any,
     accessToken?: string, functionInvocationId?: string): Context {
     if (typeof reqContext === 'string') {
         reqContext = JSON.parse(reqContext);
@@ -167,7 +167,7 @@ function decodeCeAttrib(attrVal: string|undefined): any {
 * @param logger      -- Logger
 * @return returnArgs -- array of arguments that make-up the user functions arguments
 */
-export function applySfFnMiddleware(cloudEvent: CloudEvent, headers: ReadonlyMap<string,string>, logger: Logger): Array<any> {
+export function applySfFnMiddleware(cloudEvent: CloudEvent, headers: ReadonlyMap<string,string>, logger: Logger | any): Array<any> {
     // Validate the input request
     if (!(cloudEvent && headers)) {
         throw new Error('Request Data not provided');
