@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
+import {Logger, LoggerFormat, LoggerLevel} from '@salesforce/core/lib/logger';
 import {CloudEvent} from 'cloudevents-sdk/lib/cloudevent';
 import {HTTPReceiver} from 'cloudevents-sdk/lib/bindings/http/http_receiver';
 const {Message} = require('@projectriff/message');
@@ -24,10 +24,12 @@ import loadUserFunction from './userFnLoader';
 const httpReceiver = new HTTPReceiver();
 
 function createLogger(requestID?: string): Logger {
-    const logger = new Logger('Evergreen Logger');
+    const logger = new Logger({
+        name: 'Evergreen Logger',
+        format: LoggerFormat.LOGFMT,
+        stream: process.stderr
+    });
     const level = process.env.DEBUG ? LoggerLevel.DEBUG : LoggerLevel.INFO;
-
-    logger.addStream({stream: process.stderr});
     logger.setLevel(level);
 
     if (requestID) {
