@@ -1,8 +1,7 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {Logger, LoggerFormat, LoggerLevel} from '@salesforce/core/lib/logger';
-import {CloudEvent} from 'cloudevents-sdk/lib/cloudevent';
-import {HTTPReceiver} from 'cloudevents-sdk/lib/bindings/http/http_receiver';
+import {CloudEvent,Headers as CEHeaders,Receiver} from 'cloudevents';
 const {Message} = require('@projectriff/message');
 const http = require('http');
 const https = require('https');
@@ -21,7 +20,6 @@ import {
 } from './lib/constants';
 import loadUserFunction from './userFnLoader';
 
-const httpReceiver = new HTTPReceiver();
 
 function createLogger(requestID?: string): Logger {
     const logger = new Logger({
@@ -69,6 +67,9 @@ async function invokeAsyncFn(logger: Logger, cloudEvent: CloudEvent, headers: an
         isHttps = headers[X_FORWARDED_PROTO].toLowerCase() === 'https';
     }
 
+    // length changes after body content updates
+    delete headers['content-length'];
+
     const options = {
         hostname: hostParts[0],
         port: hostParts[1] ? parseInt(hostParts[1]) : (isHttps ? 443 : 80),
@@ -113,9 +114,9 @@ async function invokeAsyncFn(logger: Logger, cloudEvent: CloudEvent, headers: an
  *
  * @param message riff Message
  */
-function toLowerCaseKeyHeaders(message: any): Map<string,string> {
+function toLowerCaseKeyHeaders(message: any): CEHeaders {
     const hdrs = message['headers'];
-    const hmap = new Map<string,string>();
+    const hmap = {};
     Object.keys(hdrs.toRiffHeaders()).forEach((key) => {
         const lcKey = key.toLowerCase();
         hmap[lcKey] = hdrs.getValue(key);
@@ -137,7 +138,7 @@ function _mv(obj: any, fromKey: string, toKey: string, newVal: any = undefined):
 /**
  * Parse input header and body into Cloudevents specification
  */
-function parseCloudEvent(logger: Logger, headers: Map<string,string>, body: any): CloudEvent {
+function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEvent {
     const ctype: string = (headers['content-type'] || '').toLowerCase();
 
     // Core API 48.0 and below send an 0.2-format CloudEvent that needs to be reformatted
@@ -155,7 +156,8 @@ function parseCloudEvent(logger: Logger, headers: Map<string,string>, body: any)
     }
 
     // make a clone of the body - cloudevents sdk deletes keys as it parses
-    return httpReceiver.accept(headers, Object.assign({}, body));
+    const bodyShallowCopy = Object.assign({}, body);
+    return Receiver.accept(headers, bodyShallowCopy);
 }
 
 const userFn = loadUserFunction();
