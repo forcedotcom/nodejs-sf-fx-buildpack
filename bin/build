@@ -42,7 +42,11 @@ else
     cp -r "${MW_LAYER}/node_modules/." "${NODE_MODULES_DIR}"
 fi
 
-npm install /workspace
+pushd $MW_LAYER
+  echo "Installing /workspace"
+  npm install /workspace
+popd
+
 FUNCTION_PACKAGE_NAME=$(jq -r '.name' < /workspace/package.json)
 echo -n "$FUNCTION_PACKAGE_NAME" > "$MW_LAYER/env/FUNCTION_PACKAGE_NAME"
 
@@ -54,4 +58,5 @@ echo "launch = true" > "$MW_LAYER.toml"
 
 
 # test that we can load the user function
-echo "require('$MW_LAYER/dist/userFnLoader').default()" | node
+cd $MW_LAYER
+echo "require('$FUNCTION_PACKAGE_NAME')" | node
