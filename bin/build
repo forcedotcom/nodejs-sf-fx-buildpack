@@ -42,11 +42,16 @@ else
     cp -r "${MW_LAYER}/node_modules/." "${NODE_MODULES_DIR}"
 fi
 
+npm install /workspace
+FUNCTION_PACKAGE_NAME=$(jq -r '.name' < /workspace/package.json)
+echo -n "$FUNCTION_PACKAGE_NAME" > "$MW_LAYER/env/FUNCTION_PACKAGE_NAME"
+
 mkdir -p "$MW_LAYER/env.launch"
 if [[ ! -z "${DEBUG_PORT}" ]]; then
   echo -n "--inspect=0.0.0.0:${DEBUG_PORT}" > "$MW_LAYER/env.launch/NODE_OPTIONS.override"
 fi
 echo "launch = true" > "$MW_LAYER.toml"
+
 
 # test that we can load the user function
 echo "require('$MW_LAYER/dist/userFnLoader').default()" | node
