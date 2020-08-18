@@ -54,6 +54,5 @@ if [[ ! -z "${DEBUG_PORT}" ]]; then
 fi
 echo "launch = true" > "$MW_LAYER.toml"
 
-
 # test that we can load the user function
-echo "require('$MW_LAYER/dist/userFnLoader').default()" | SF_FUNCTION_PACKAGE_NAME=$SF_FUNCTION_PACKAGE_NAME node
+echo "require('$MW_LAYER/dist/userFnLoader').default('$SF_FUNCTION_PACKAGE_NAME')" | node
