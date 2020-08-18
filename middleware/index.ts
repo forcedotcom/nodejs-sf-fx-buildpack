@@ -19,6 +19,7 @@ import {
     X_FORWARDED_HOST,
     X_FORWARDED_PROTO
 } from './lib/constants';
+import loadUserFunction from './userFnLoader';
 
 const httpReceiver = new HTTPReceiver();
 
@@ -157,7 +158,7 @@ function parseCloudEvent(logger: Logger, headers: Map<string,string>, body: any)
     return httpReceiver.accept(headers, Object.assign({}, body));
 }
 
-const userFn = require(process.env["FUNCTION_PACKAGE_NAME"]);
+const userFn = loadUserFunction();
 
 export default async function systemFn(message: any): Promise<any> {
     // Remap riff headers to a standard JS object with lower-case keys

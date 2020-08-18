@@ -42,12 +42,11 @@ else
     cp -r "${MW_LAYER}/node_modules/." "${NODE_MODULES_DIR}"
 fi
 
-pushd $MW_LAYER
-  npm install /workspace
-popd
-
-FUNCTION_PACKAGE_NAME=$(jq -r '.name' < /workspace/package.json)
-echo -n "$FUNCTION_PACKAGE_NAME" > "$MW_LAYER/env/FUNCTION_PACKAGE_NAME.override"
+# Setup user function as a node module dependency in the middleware and allow
+# the user function to be required by name.
+USER_FUNCTION_PACKAGE_NAME=$(jq -r '.name' < /workspace/package.json)
+echo -n "$USER_FUNCTION_PACKAGE_NAME" > "$MW_LAYER/env/USER_FUNCTION_PACKAGE_NAME.override"
+ln -s /workspace "$MW_LAYER/node_modules/$USER_FUNCTION_PACKAGE_NAME"
 
 mkdir -p "$MW_LAYER/env.launch"
 if [[ ! -z "${DEBUG_PORT}" ]]; then
@@ -57,5 +56,4 @@ echo "launch = true" > "$MW_LAYER.toml"
 
 
 # test that we can load the user function
-cd $MW_LAYER
-echo "require('$FUNCTION_PACKAGE_NAME').default()" | node
+echo "require('$MW_LAYER/dist/userFnLoader').default()" | USER_FUNCTION_PACKAGE_NAME=$USER_FUNCTION_PACKAGE_NAME node
