@@ -57,6 +57,15 @@ echo "Installing $SF_FUNCTION_PACKAGE_NAME"
 echo -n "$SF_FUNCTION_PACKAGE_NAME" > "$MW_LAYER/env/SF_FUNCTION_PACKAGE_NAME.override"
 ln -s /workspace "$MW_LAYER/node_modules/$SF_FUNCTION_PACKAGE_NAME"
 
+# Check that user's salesforce-sdk version is compatible with the middleware's.
+if [[ -f "/workspace/package-lock.json" ]]; then
+  SF_FUNCTION_SDK_VERSION=$(jq -r '.dependencies["@salesforce/salesforce-sdk"].version // empty' < /workspace/package-lock.json)
+fi
+if [[ -n "${SF_FUNCTION_SDK_VERSION}" ]]; then
+  SF_MIDDLEWARE_SDK_RANGE=$(jq -r '.dependencies["@salesforce/salesforce-sdk"] // empty' < "$MW_LAYER/package.json")
+  echo "require('$MW_LAYER/dist/versionChecker').default('@salesforce/salesforce-sdk', '$SF_FUNCTION_SDK_VERSION', '$SF_MIDDLEWARE_SDK_RANGE')" | node
+fi
+
 mkdir -p "$MW_LAYER/env.launch"
 if [[ ! -z "${DEBUG_PORT}" ]]; then
   echo -n "--inspect=0.0.0.0:${DEBUG_PORT}" > "$MW_LAYER/env.launch/NODE_OPTIONS.override"
