@@ -158,7 +158,7 @@ function parseCloudEvent(logger: Logger, headers: Map<string,string>, body: any)
     return httpReceiver.accept(headers, Object.assign({}, body));
 }
 
-const userFn = loadUserFunction();
+const userFn = loadUserFunction(process.env["SF_FUNCTION_PACKAGE_NAME"]);
 
 export default async function systemFn(message: any): Promise<any> {
     // Remap riff headers to a standard JS object with lower-case keys
