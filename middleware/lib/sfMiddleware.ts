@@ -16,11 +16,24 @@ import {
 } from '@salesforce/salesforce-sdk/dist/functions';
 import { FunctionInvocationRequest } from './FunctionInvocationRequest';
 import {FN_INVOCATION} from './constants';
-import { CloudEvent } from 'cloudevents-sdk/lib/cloudevent';
+import { CloudEvent, Headers as CEHeaders } from 'cloudevents';
 
-function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<string>> {
-    const headersMap: Map<string, ReadonlyArray<string>> = new Map(Object.entries(headers));
+function headersToMap(headers: CEHeaders): ReadonlyMap<string, ReadonlyArray<string>> {
+    const headersMap: Map<string, ReadonlyArray<string>> = new Map();
+    Object.entries(headers).forEach(([k, v]) => {
+        headersMap[k] = Array.of(v);
+    });
     return headersMap;
+}
+
+// convert CloudEvent.time to milliseconds since 1970 UTC
+function timeMillis(cloudEventTime: string | Date): number {
+    if (cloudEventTime == null) {
+        return new Date().getTime();
+    } else if (typeof cloudEventTime === 'string') {
+        return Date.parse(cloudEventTime);
+    }
+    return cloudEventTime.getTime();
 }
 
 /**
@@ -32,15 +45,15 @@ function headersToMap(headers: any = {}): ReadonlyMap<string, ReadonlyArray<stri
  * @param cloudEvent -- parsed request input CloudEvent
  * @return an InvocationEvent
  */
-function createEvent(isSpec1: boolean, fnPayload: any, headers: ReadonlyMap<string,string>, cloudEvent: CloudEvent): InvocationEvent {
-    const schemaURL = isSpec1 ? null : cloudEvent.schemaURL;
+function createEvent(isSpec1: boolean, fnPayload: any, headers: CEHeaders, cloudEvent: CloudEvent): InvocationEvent {
+    const schemaURL = isSpec1 ? null : cloudEvent.schemaurl;
     return new InvocationEvent(
         fnPayload,
-        cloudEvent.dataContentType,
+        cloudEvent.datacontenttype,
         schemaURL,
         cloudEvent.id,
         cloudEvent.source,
-        cloudEvent.time,
+        timeMillis(cloudEvent.time),
         cloudEvent.type,
         headersToMap(headers)
     );
@@ -151,7 +164,7 @@ function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?
  * @param attrVal CloudEvent attribute value to decode.
  * @returns null on empty attrVal, decoded JS Object if successful.
  */
-function decodeCeAttrib(attrVal: string|undefined): any {
+function decodeCeAttrib(attrVal: any): any {
     if (attrVal != null) {
         const buf = Buffer.from(attrVal, 'base64');
         return JSON.parse(buf.toString());
@@ -167,7 +180,7 @@ function decodeCeAttrib(attrVal: string|undefined): any {
 * @param logger      -- Logger
 * @return returnArgs -- array of arguments that make-up the user functions arguments
 */
-export function applySfFnMiddleware(cloudEvent: CloudEvent, headers: ReadonlyMap<string,string>, logger: Logger): Array<any> {
+export function applySfFnMiddleware(cloudEvent: CloudEvent, headers: CEHeaders, logger: Logger): Array<any> {
     // Validate the input request
     if (!(cloudEvent && headers)) {
         throw new Error('Request Data not provided');
@@ -193,14 +206,14 @@ export function applySfFnMiddleware(cloudEvent: CloudEvent, headers: ReadonlyMap
     if (!data) {
         throw new Error('Data field of the cloudEvent not provided in the request');
     }
-    const ceCtx = isSpec1 ? decodeCeAttrib(cloudEvent.getExtensions()['sfcontext']) : data.context;
-    const ceFnCtx = isSpec1 ? decodeCeAttrib(cloudEvent.getExtensions()['sffncontext']) : data.sfContext;
+    const ceCtx = isSpec1 ? decodeCeAttrib(cloudEvent['sfcontext']) : data['context'];
+    const ceFnCtx = isSpec1 ? decodeCeAttrib(cloudEvent['sffncontext']) : data['sfContext'];
     if (!ceCtx) {
         logger.warn('Context not provided in data: context is partially initialized');
     }
 
     // Customer payload is data.payload for old spec version, data for 1.0+
-    const fnPayload = isSpec1 ? data : data.payload;
+    const fnPayload = isSpec1 ? data : data['payload'];
 
     // Not all functions will require an accessToken used for org access.
     // The accessToken will not be passed directly to functions, but instead
@@ -211,7 +224,7 @@ export function applySfFnMiddleware(cloudEvent: CloudEvent, headers: ReadonlyMap
         accessToken = ceFnCtx.accessToken || undefined;
         functionInvocationId = ceFnCtx.functionInvocationId || undefined;
         // Internal only, will be noop for specversion 1.0+
-        delete data.sfContext;
+        delete data['sfContext'];
     }
 
     // Construct event contain custom payload and details about the function request

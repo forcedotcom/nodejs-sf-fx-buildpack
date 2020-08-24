@@ -5,7 +5,7 @@ import {
     FN_INVOCATION
 } from '../../lib/constants';
 import { FunctionInvocationRequest } from '../../lib/FunctionInvocationRequest';
-import { CloudEvent } from 'cloudevents-sdk/lib/cloudevent';
+import { CloudEvent, Headers as CEHeaders } from 'cloudevents';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const portHeaderPart = 6666;
@@ -88,15 +88,15 @@ export const generateCloudevent = (data: any, async = false, specVersion = '0.3'
     return ce;
 };
 
-export const generateRawMiddleWareRequest = (data: any, async = false): [CloudEvent, ReadonlyMap<string,string>] => {
+export const generateRawMiddleWareRequest = (data: any, async = false): [CloudEvent, CEHeaders] => {
     const cloudEvent: CloudEvent = generateCloudevent(data, async);
-    const rawheaders = {
+    const headers = {
         'authorization' : 'C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J',
         'content-type' : 'application/json',
         X_FORWARDED_HOST : hostHeader, // test case insensitive lookup
         X_FORWARDED_PROTO: 'http'
     };
-    return [cloudEvent, new Map(Object.entries(rawheaders))];
+    return [cloudEvent, headers];
 };
 
 export class FakeFunction {
