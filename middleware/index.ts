@@ -140,9 +140,12 @@ function _mv(obj: any, fromKey: string, toKey: string, newVal: any = undefined):
  */
 function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEvent {
     const ctype: string = (headers['content-type'] || '').toLowerCase();
+    const bodyIsObj: boolean = typeof body === 'object'
 
     // Core API 48.0 and below send an 0.2-format CloudEvent that needs to be reformatted
-    if ('specVersion' in body && '0.2' === body['specVersion']) {
+    if (bodyIsObj &&
+            'specVersion' in body && 
+            '0.2' === body['specVersion']) {
         _mv(body, 'specVersion', 'specversion', '0.3');
         _mv(body, 'contentType', 'datacontenttype');
         _mv(body, 'schemaURL', 'schemaurl');
@@ -150,13 +153,17 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
         logger.info('Translated cloudevent 0.2 to 0.3 format');
 
         // Initial deployment of Core API 50.0 send the wrong content-type, need to adjust
-    } else if (ctype.includes('application/json') && 'specversion' in body) {
+    } else if (ctype.includes('application/json') && 
+            bodyIsObj && 
+            'specversion' in body) {
         headers['content-type'] = 'application/cloudevents+json';
         logger.info('Forced content-type to: application/cloudevents+json');
     }
 
-    // make a clone of the body - cloudevents sdk deletes keys as it parses
-    const bodyShallowCopy = Object.assign({}, body);
+    // make a clone of the body if object - cloudevents sdk deletes keys as it parses.
+    // otherwise Receiver will do a JSON parse so need to re-stringify any string body
+    const bodyShallowCopy = bodyIsObj ? Object.assign({}, body) : 
+            JSON.stringify(body);
     return Receiver.accept(headers, bodyShallowCopy);
 }
 
@@ -168,7 +175,10 @@ export default async function systemFn(message: any): Promise<any> {
 
     // evergreen:function:invoke includes an extra 'data' level for BinaryHTTP format
     let bodyPayload: any = message['payload'];
-    if ('data' in bodyPayload && 'ce-id' in headers && headers['ce-specversion'] === '0.3') {
+    if (typeof bodyPayload === 'object' &&
+            'data' in bodyPayload &&
+            'ce-id' in headers && 
+            headers['ce-specversion'] === '0.3') {
         bodyPayload = bodyPayload['data'];
     }
 
