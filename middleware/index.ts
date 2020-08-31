@@ -206,7 +206,7 @@ export default async function systemFn(message: any): Promise<any> {
         // If initial async request, invoke function again and release request
         isAsync = isAsyncRequest(cloudEvent.type);
         if (isAsync) {
-            if (!headers[ASYNC_FULFILL_HEADER]) {
+            if (!headers[ASYNC_FULFILL_HEADER.toLowerCase()]) {
                 requestLogger.info('Received initial async request');
                 await invokeAsyncFn(requestLogger, cloudEvent, headers);
                 // Function invoked on forwarded request; release initial client request
