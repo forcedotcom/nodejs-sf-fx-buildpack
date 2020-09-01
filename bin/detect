@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-if [ -f package.json ]; then
-  echo "detected package.json"
+if [ -f package.json ] && [ -f function.toml ]; then
+  echo "detected Salesforce Function"
 
 cat << EOF > "$2"
 [[requires]]
