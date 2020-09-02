@@ -25,6 +25,7 @@ cached_lock_checksum=$(yj -t < "${NODE_MODULES_DIR}.toml" | jq -r ".metadata.pac
 
 if [[ "$local_lock_checksum" == "$cached_lock_checksum" ]] ; then
     echo "using previous node_modules and dist artifacts from cache"
+    rm "${MW_LAYER}/node_modules/*"
     cp -r "${NODE_MODULES_DIR}/." "${MW_LAYER}/node_modules"
 else
 
