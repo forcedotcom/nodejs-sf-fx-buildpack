@@ -1,6 +1,6 @@
 {
   "name": "sf-fx-middleware",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "description": "Middleware for salesforce functions",
   "license": "UNLICENSED",
   "main": "dist/index.js",
