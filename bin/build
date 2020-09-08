@@ -8,6 +8,15 @@ echo "LAYERS_DIR: " $LAYERS_DIR
 MW_LAYER="$LAYERS_DIR/middleware"
 echo "MW_LAYER: " $MW_LAYER
 
+# Get the package name of the user function, to allow it to be required by name
+SF_FUNCTION_PACKAGE_NAME=$(jq -r '.name // empty' < /workspace/package.json)
+if [[ -z "${SF_FUNCTION_PACKAGE_NAME}" ]]; then
+  echo "Salesforce function package name not defined. Make sure there is a 'name' in package.json."
+  exit 1
+fi
+# Remove the user function package symlink if present from previous build
+rm -f "${MW_LAYER}/node_modules/${SF_FUNCTION_PACKAGE_NAME}"
+
 # Setup caching layer for middleware node_modules
 NODE_MODULES_DIR="${LAYERS_DIR}/node_modules" # the actual layer where the caching values are saved to
 touch "${NODE_MODULES_DIR}.toml"              # the layer toml file that tells lifecycle to enable cache
@@ -42,13 +51,7 @@ else
     cp -r "${MW_LAYER}/node_modules/." "${NODE_MODULES_DIR}"
 fi
 
-# Setup user function as a node module dependency in the middleware and allow
-# the user function to be required by name.
-SF_FUNCTION_PACKAGE_NAME=$(jq -r '.name // empty' < /workspace/package.json)
-if [[ -z "${SF_FUNCTION_PACKAGE_NAME}" ]]; then
-  echo "Salesforce function package name not defined. Make sure there is a 'name' in package.json."
-  exit 1
-fi
+# Install the user function as a middleware dependency, so it can be required
 if [[ -d "$MW_LAYER/node_modules/$SF_FUNCTION_PACKAGE_NAME" ]]; then
   echo "Salesforce function package name($SF_FUNCTION_PACKAGE_NAME) conflicts with existing module. Change the 'name' in package.json."
   exit 1
