@@ -1,22 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {Logger, LoggerLevel} from '@salesforce/core/lib/logger';
-import {Constants, APIVersion} from '@salesforce/salesforce-sdk/dist/index';
 import {
+    APIVersion,
     ConnectionConfig,
+    Context,
     DataApi,
+    InvocationEvent,
+    Org,
     Secrets,
     UnitOfWork,
     UnitOfWorkGraph,
-} from '@salesforce/salesforce-sdk/dist/api';
-import {
-    Context,
-    InvocationEvent,
-    Org,
-    User,
-} from '@salesforce/salesforce-sdk/dist/functions';
-import { FunctionInvocationRequest } from './FunctionInvocationRequest';
+    User
+} from '@salesforce/salesforce-sdk';
+import {FunctionInvocationRequest} from './FunctionInvocationRequest';
 import {FN_INVOCATION} from './constants';
-import { CloudEvent, Headers as CEHeaders } from 'cloudevents';
+import {CloudEvent, Headers as CEHeaders} from 'cloudevents';
 
 function headersToMap(headers: CEHeaders): ReadonlyMap<string, ReadonlyArray<string>> {
     const headersMap: Map<string, ReadonlyArray<string>> = new Map();
@@ -97,7 +95,12 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
         throw new Error(message);
     }
 
-    const apiVersion = reqContext.apiVersion || process.env.FX_API_VERSION || Constants.CURRENT_API_VERSION;
+    const apiVersion = reqContext.apiVersion || process.env.FX_API_VERSION;
+    if (!apiVersion) {
+        const message = `API Version not provided: ${JSON.stringify(reqContext)}`;
+        throw new Error(message);
+    }
+
     const user = createUser(userContext);
 
     // If accessToken was provided, setup APIs.

@@ -1,11 +1,11 @@
-import { Context } from '@salesforce/salesforce-sdk';
+import {Context} from '@salesforce/salesforce-sdk';
 import * as sinon from 'sinon';
 import {
     ASYNC_CE_TYPE,
     FN_INVOCATION
 } from '../../lib/constants';
-import { FunctionInvocationRequest } from '../../lib/FunctionInvocationRequest';
-import { CloudEvent, Headers as CEHeaders } from 'cloudevents';
+import {FunctionInvocationRequest} from '../../lib/FunctionInvocationRequest';
+import {CloudEvent, Headers as CEHeaders} from 'cloudevents';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const portHeaderPart = 6666;
@@ -38,7 +38,7 @@ export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false,
     }
 
     const context = {
-        apiVersion:'48.0',
+        apiVersion:'50.0',
         payloadVersion:'224.1',
         userContext
     };
@@ -68,9 +68,9 @@ export const generateCloudevent = (data: any, async = false, specVersion = '0.3'
     const ce = new CloudEvent({
         specversion: specVersion,
         id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
-        dataContentType: 'application/json',
+        datacontenttype: 'application/json',
         type: async ? ASYNC_CE_TYPE : 'com.salesforce.function.invoke',
-        schemaURL: null,
+        schemaurl: '',
         source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
         time: '2019-11-14T18:13:45.627813Z',
         data: {}
@@ -88,7 +88,7 @@ export const generateCloudevent = (data: any, async = false, specVersion = '0.3'
     return ce;
 };
 
-export const generateRawMiddleWareRequest = (data: any, async = false): [CloudEvent, CEHeaders] => {
+export const generateCloudEventObjs = (data: any, async = false): [CloudEvent, CEHeaders] => {
     const cloudEvent: CloudEvent = generateCloudevent(data, async);
     const headers = {
         'authorization' : 'C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J',

@@ -1,28 +1,28 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-var-requires */
-import { assert, expect, use } from 'chai';
+import {assert, expect, use} from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import 'mocha';
 import * as request from 'request-promise-native';
 import * as sinon from 'sinon';
-import { Context, Logger, Org, User } from '@salesforce/salesforce-sdk';
+import {Context, Logger, Org, User} from '@salesforce/salesforce-sdk';
+import {CloudEvent, Headers as CEHeaders} from 'cloudevents';
 
 use(chaiAsPromised);
 
-import { 
-    FakeFunction, 
-    generateCloudevent, 
-    generateData, 
-    generateRawMiddleWareRequest, 
+import {
+    FakeFunction,
+    generateCloudevent,
+    generateData,
+    generateCloudEventObjs,
     hostHeader,
     hostnameHeaderPart,
-    portHeaderPart 
+    portHeaderPart
 } from './FunctionTestUtils';
-import { Message } from '@projectriff/message';
+import {Message} from '@projectriff/message';
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
-import systemFn from '../../index';
 import {applySfFnMiddleware} from '../../lib/sfMiddleware';
 import {
     ASYNC_FULFILL_HEADER,
@@ -55,7 +55,8 @@ describe('Invoke Function Tests', () => {
 
     // Function params
     let data: any;
-    let rawRequest: any;
+    let cloudEvent: CloudEvent;
+    let headers: CEHeaders;
 
     let sandbox: sinon.SinonSandbox;
     let mockRequestPost;
@@ -74,7 +75,7 @@ describe('Invoke Function Tests', () => {
         sandbox = sinon.createSandbox();
 
         data = generateData(true);
-        rawRequest = generateRawMiddleWareRequest(data);
+        [cloudEvent, headers] = generateCloudEventObjs(data);
 
         // Request
         mockRequestPost = sandbox.stub(request, 'post');
@@ -93,7 +94,7 @@ describe('Invoke Function Tests', () => {
 
         // cloudevent generated above
         // Until middleware is in place, context passed to function is not provide
-        const middlewareResult = applySfFnMiddleware(rawRequest, LOGGER);
+        const middlewareResult = applySfFnMiddleware(cloudEvent, headers, LOGGER);
         expect(middlewareResult).to.exist;
 
         const event = middlewareResult[0];
@@ -113,7 +114,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should invoke function', async () => {
-        const transformedParams = applySfFnMiddleware(rawRequest, LOGGER);
+        const transformedParams = applySfFnMiddleware(cloudEvent, headers, LOGGER);
         const event = transformedParams[0];
         const context = transformedParams[1];
 
@@ -134,7 +135,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should have payload', async () => {
-        const transformedParams = applySfFnMiddleware(rawRequest, LOGGER);
+        const transformedParams = applySfFnMiddleware(cloudEvent, headers, LOGGER);
         const event = transformedParams[0];
         const context = transformedParams[1];
 
@@ -152,7 +153,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should handle FunctionInvocation - https', async () => {
-        const transformedParams = applySfFnMiddleware(rawRequest, LOGGER);
+        const transformedParams = applySfFnMiddleware(cloudEvent, headers, LOGGER);
         const event = transformedParams[0];
         const context = transformedParams[1];
 
@@ -200,7 +201,7 @@ describe('Invoke Function Tests', () => {
             const httpsRequestStub = sandbox.stub(https, 'request');
 
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
+            const fnResult = await require('../../index')(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(X_FORWARDED_HOST.toUpperCase(), hostHeader) // test case insenstive
                 .addHeader(X_FORWARDED_PROTO, 'http')
@@ -239,7 +240,7 @@ describe('Invoke Function Tests', () => {
 
             const host = 'sparrow-1a3ebmr.okra-ms2twzu6no.castle-7d6622.evergreen.space';
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
+            const fnResult = await require('../../index')(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(X_FORWARDED_HOST, host) // test case insenstive
                 .payload(cloudEventRequest)
@@ -266,7 +267,7 @@ describe('Invoke Function Tests', () => {
         it('should handle initial async invocation - error, specVersion=' + specVersion, async () => {
             const host = '127.0.0.1';
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
+            const fnResult = await require('../../index')(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(X_FORWARDED_HOST, host) // test case insenstive
                 .payload(cloudEventRequest)
@@ -293,7 +294,7 @@ describe('Invoke Function Tests', () => {
             });
 
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
+            const fnResult = await require('../../index')(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(ASYNC_FULFILL_HEADER, 'true')
                 .payload(cloudEventRequest)
@@ -320,7 +321,7 @@ describe('Invoke Function Tests', () => {
             });
 
             const cloudEventRequest = generateCloudevent(generateData(true, false, true), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
+            const fnResult = await require('../../index')(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(ASYNC_FULFILL_HEADER, 'true')
                 .payload(cloudEventRequest)
