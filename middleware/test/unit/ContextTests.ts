@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {LoggerLevel} from '@salesforce/core';
-import {ConnectionConfig, Constants, Context, Logger} from '@salesforce/salesforce-sdk';
+import {APIVersion, ConnectionConfig, Context, Logger} from '@salesforce/salesforce-sdk';
 import {expect} from 'chai';
 import * as fs from 'fs';
 import 'mocha';
 import * as sinon from 'sinon';
 
-import {generateData, generateRawMiddleWareRequest} from './FunctionTestUtils';
+import {generateData, generateCloudEventObjs} from './FunctionTestUtils';
 
 import {applySfFnMiddleware} from '../../lib/sfMiddleware';
 import {FN_INVOCATION} from '../../lib/constants';
@@ -24,7 +24,7 @@ describe('Context Tests', () => {
 
     const validateContext = (data: any, context: Context, hasOnBehalfOfUserId = false): void => {
         expect(context.org.apiVersion).to.exist;
-        expect(context.org.apiVersion).to.equal(Constants.CURRENT_API_VERSION);
+        expect(context.org.apiVersion).to.equal(APIVersion.V50.toString());
 
         expect(context.org.user).to.exist;
         expect(context.org.domainUrl).to.equal(data.context.userContext.orgDomainUrl);
@@ -77,7 +77,7 @@ describe('Context Tests', () => {
     };
 
     const getContext = (data: any) : Context => {
-        const [cloudEvent, headers] = generateRawMiddleWareRequest(data);
+        const [cloudEvent, headers] = generateCloudEventObjs(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
         const mwResult: any = applySfFnMiddleware(cloudEvent, headers, logger);
         validateApplyMiddleWareResult(data, mwResult);
@@ -101,7 +101,7 @@ describe('Context Tests', () => {
         // Requires accessToken
         expect(context.org.data).to.exist;
         expect(context.org.unitOfWork).to.exist;
-        expect(context.org.unitOfWorkGraph).to.not.exist;       //apiVersion needs to be at least 50.0
+        expect(context.org.unitOfWorkGraph).to.exist;       //apiVersion needs to be at least 50.0
         expect(context[FN_INVOCATION]).to.exist;
         expect(context[FN_INVOCATION].id).to.equal(fnInvocationId);
 
@@ -207,7 +207,7 @@ describe('Context Tests', () => {
         const data = generateData(true);
         expect(data.context).to.exist;
 
-        const [cloudEvent, headers] = generateRawMiddleWareRequest(data);
+        const [cloudEvent, headers] = generateCloudEventObjs(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
         const mwResult: any = applySfFnMiddleware(cloudEvent, headers, logger);
         validateApplyMiddleWareResult(data, mwResult);
@@ -228,7 +228,7 @@ describe('Context Tests', () => {
         const data = generateData(true);
         expect(data.context).to.exist;
 
-        const [cloudEvent, headers] = generateRawMiddleWareRequest(data);
+        const [cloudEvent, headers] = generateCloudEventObjs(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
         const mwResult: any = applySfFnMiddleware(cloudEvent, headers, logger);
         validateApplyMiddleWareResult(data, mwResult);
@@ -241,7 +241,7 @@ describe('Context Tests', () => {
 
     it('expect custom payload data not available', () => {
         const data = {"someproperty":"whatever"};
-        const [cloudEvent, headers] = generateRawMiddleWareRequest(data);
+        const [cloudEvent, headers] = generateCloudEventObjs(data);
         const logger = new Logger('Evergreen Logger Context Unit Test');
         const mwResult: any = applySfFnMiddleware(cloudEvent, headers, logger);
 
