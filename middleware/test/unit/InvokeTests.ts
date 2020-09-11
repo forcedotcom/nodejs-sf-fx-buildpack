@@ -23,6 +23,7 @@ import {Message} from '@projectriff/message';
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
+import systemFn from '../../index';
 import {applySfFnMiddleware} from '../../lib/sfMiddleware';
 import {
     ASYNC_FULFILL_HEADER,
@@ -201,7 +202,7 @@ describe('Invoke Function Tests', () => {
             const httpsRequestStub = sandbox.stub(https, 'request');
 
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await require('../../index')(Message.builder()
+            const fnResult = await systemFn(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(X_FORWARDED_HOST.toUpperCase(), hostHeader) // test case insenstive
                 .addHeader(X_FORWARDED_PROTO, 'http')
@@ -240,7 +241,7 @@ describe('Invoke Function Tests', () => {
 
             const host = 'sparrow-1a3ebmr.okra-ms2twzu6no.castle-7d6622.evergreen.space';
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await require('../../index')(Message.builder()
+            const fnResult = await systemFn(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(X_FORWARDED_HOST, host) // test case insenstive
                 .payload(cloudEventRequest)
@@ -267,7 +268,7 @@ describe('Invoke Function Tests', () => {
         it('should handle initial async invocation - error, specVersion=' + specVersion, async () => {
             const host = '127.0.0.1';
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await require('../../index')(Message.builder()
+            const fnResult = await systemFn(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(X_FORWARDED_HOST, host) // test case insenstive
                 .payload(cloudEventRequest)
@@ -294,7 +295,7 @@ describe('Invoke Function Tests', () => {
             });
 
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await require('../../index')(Message.builder()
+            const fnResult = await systemFn(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(ASYNC_FULFILL_HEADER, 'true')
                 .payload(cloudEventRequest)
@@ -321,7 +322,7 @@ describe('Invoke Function Tests', () => {
             });
 
             const cloudEventRequest = generateCloudevent(generateData(true, false, true), true, specVersion);
-            const fnResult = await require('../../index')(Message.builder()
+            const fnResult = await systemFn(Message.builder()
                 .addHeader('content-type', 'application/json')
                 .addHeader(ASYNC_FULFILL_HEADER, 'true')
                 .payload(cloudEventRequest)
