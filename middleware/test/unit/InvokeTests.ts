@@ -23,14 +23,9 @@ import {Message} from '@projectriff/message';
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
-import systemFn from '../../index';
+//import require('../../index') from '../../index';
 import {applySfFnMiddleware} from '../../lib/sfMiddleware';
-import {
-    ASYNC_FULFILL_HEADER,
-    FN_INVOCATION,
-    X_FORWARDED_HOST,
-    X_FORWARDED_PROTO
-} from '../../lib/constants';
+import {FN_INVOCATION} from '../../lib/constants';
 import * as fnInvRequest from '../../lib/FunctionInvocationRequest';
 
 interface PdfEvent {
@@ -52,7 +47,7 @@ const LOGGER = new Logger({name: 'test', level: 100});
 
 describe('Invoke Function Tests', () => {
 
-    const specVersions = ['0.2', '1.0'];
+    const specVersions = ['0.3', '1.0'];
 
     // Function params
     let data: any;
@@ -153,7 +148,7 @@ describe('Invoke Function Tests', () => {
         return Promise.resolve(null);
     });
 
-    it('should handle FunctionInvocation - https', async () => {
+    it('should handle FunctionInvocation', async () => {
         const transformedParams = applySfFnMiddleware(cloudEvent, headers, LOGGER);
         const event = transformedParams[0];
         const context = transformedParams[1];
@@ -189,153 +184,46 @@ describe('Invoke Function Tests', () => {
 
     specVersions.forEach(function(specVersion : string) {
 
-        it('should handle async invocation - http, specVersion=' + specVersion, async () => {
-            let receivedOptions;
-            const mockRequest = new PassThrough();
-            const requestWriteSpy = sandbox.stub(mockRequest, 'write');
-            const httpRequestStub = sandbox.stub(http, 'request');
-            httpRequestStub.callsFake((options): any => {
-                receivedOptions = options;
-                return mockRequest;
-            });
-            // Should not be called
-            const httpsRequestStub = sandbox.stub(https, 'request');
-
+        it('should handle invocation - https, specVersion=' + specVersion, async () => {
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
+            const fnResult = await require('../../index').default(Message.builder()
                 .addHeader('content-type', 'application/json')
-                .addHeader(X_FORWARDED_HOST.toUpperCase(), hostHeader) // test case insenstive
-                .addHeader(X_FORWARDED_PROTO, 'http')
-                .payload(cloudEventRequest)
-                .build());
-            expect(httpsRequestStub.called).to.be.false;
-            expect(fnResult).to.be.not.undefined;
-            expect(fnResult).to.be.not.null;
-            expect(fnResult.headers).to.be.exist;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.eq('202');
-            expect(receivedOptions).to.be.not.undefined;
-            expect(receivedOptions).to.be.not.null;
-            expect(receivedOptions.hostname).to.be.eq(hostnameHeaderPart);
-            expect(receivedOptions.port).to.be.eq(portHeaderPart);
-            expect(receivedOptions.method).to.be.eq('POST');
-            const headers = receivedOptions.headers;
-            expect(headers).to.be.not.undefined;
-            expect(headers).to.be.not.null;
-            expect(headers[ASYNC_FULFILL_HEADER]).to.be.true;
-            expect(requestWriteSpy.calledOnce).to.be.true;
-
-            return Promise.resolve(null);
-        });
-
-        it('should handle initial async invocation - https, specVersion=' + specVersion, async () => {
-            let receivedOptions;
-            const mockRequest = new PassThrough();
-            const requestWriteSpy = sandbox.stub(mockRequest, 'write');
-            const httpsRequestStub = sandbox.stub(https, 'request');
-            httpsRequestStub.callsFake((options): any => {
-                receivedOptions = options;
-                return mockRequest;
-            });
-            // Should not be called
-            const httpRequestStub = sandbox.stub(http, 'request');
-
-            const host = 'sparrow-1a3ebmr.okra-ms2twzu6no.castle-7d6622.evergreen.space';
-            const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
-                .addHeader('content-type', 'application/json')
-                .addHeader(X_FORWARDED_HOST, host) // test case insenstive
-                .payload(cloudEventRequest)
-                .build());
-            expect(httpRequestStub.called).to.be.false;
-            expect(fnResult).to.be.not.undefined;
-            expect(fnResult).to.be.not.null;
-            expect(fnResult.headers).to.be.exist;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.eq('202');
-            expect(receivedOptions).to.be.not.undefined;
-            expect(receivedOptions).to.be.not.null;
-            expect(receivedOptions.hostname).to.be.eq(host);
-            expect(receivedOptions.port).to.be.eq(443);
-            expect(receivedOptions.method).to.be.eq('POST');
-            const headers = receivedOptions.headers;
-            expect(headers).to.be.not.undefined;
-            expect(headers).to.be.not.null;
-            expect(headers[ASYNC_FULFILL_HEADER]).to.be.true;
-            expect(requestWriteSpy.calledOnce).to.be.true;
-
-            return Promise.resolve(null);
-        });
-
-        it('should handle initial async invocation - error, specVersion=' + specVersion, async () => {
-            const host = '127.0.0.1';
-            const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
-                .addHeader('content-type', 'application/json')
-                .addHeader(X_FORWARDED_HOST, host) // test case insenstive
-                .payload(cloudEventRequest)
+                .payload(cloudEventRequest.toJSON())
                 .build());
             expect(fnResult).to.be.not.undefined;
             expect(fnResult).to.be.not.null;
-            expect(fnResult.headers).to.be.exist;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.eq('500');
+            expect(fnResult).to.be.deep.equal({ success: true });
 
             return Promise.resolve(null);
         });
 
-        it('should handle async invocation fulfillment - success, specVersion=' + specVersion, async () => {
-            let gotFnInvocation;
-            let gotResponse;
-            const saveFnInvocationStub = sandbox.stub(fnInvRequest, 'saveFnInvocation');
-            saveFnInvocationStub.callsFake(async (logger: Logger,
-                fnInvocation: fnInvRequest.FunctionInvocationRequest,
-                response: any,
-                status): Promise<void> => {  // eslint-disable-line @typescript-eslint/no-unused-vars
-                    gotFnInvocation = fnInvocation;
-                    gotResponse = response;
-                    return Promise.resolve(null);
-            });
-
+        it('should handle invocation - internal error, specVersion=' + specVersion, async () => {
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
+            delete cloudEventRequest.data;
+            const fnResult = await require('../../index').default(Message.builder()
                 .addHeader('content-type', 'application/json')
-                .addHeader(ASYNC_FULFILL_HEADER, 'true')
-                .payload(cloudEventRequest)
+                .payload(cloudEventRequest) // not toJSON to cause parse error
                 .build());
-            expect(fnResult).to.deep.equal({success: true});
-            expect(saveFnInvocationStub.calledOnce).to.be.true;
-            expect(gotFnInvocation).to.be.not.undefined;
-            expect(gotFnInvocation.id).to.be.not.undefined;
-            expect(gotResponse).to.deep.equal({success: true});
+            expect(fnResult).to.be.not.undefined;
+            expect(fnResult).to.be.not.null;
+            expect(fnResult.headers.getValue('x-http-status')).to.be.equal('503');
+            expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
+            expect(fnResult.headers.getValue('x-extra-info')).to.contain('applySfFnMiddleware');
 
             return Promise.resolve(null);
         });
 
-        it('should handle async invocation fulfillment - error, specVersion=' + specVersion, async () => {
-            let gotFnInvocation;
-            let gotResponse;
-            const saveFnInvocationErrorStub = sandbox.stub(fnInvRequest, 'saveFnInvocationError');
-            saveFnInvocationErrorStub.callsFake(async (logger: Logger,
-                fnInvocation: fnInvRequest.FunctionInvocationRequest,
-                response: any): Promise<void> => {
-                    gotFnInvocation = fnInvocation;
-                    gotResponse = response;
-                    return Promise.resolve(null);
-            });
-
+        it('should handle invocation - function error, specVersion=' + specVersion, async () => {
             const cloudEventRequest = generateCloudevent(generateData(true, false, true), true, specVersion);
-            const fnResult = await systemFn(Message.builder()
+            const fnResult = await require('../../index').default(Message.builder()
                 .addHeader('content-type', 'application/json')
-                .addHeader(ASYNC_FULFILL_HEADER, 'true')
-                .payload(cloudEventRequest)
+                .payload(cloudEventRequest.toJSON())
                 .build());
             expect(fnResult).to.be.not.undefined;
             expect(fnResult).to.be.not.null;
-            expect(fnResult.headers).to.be.exist;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.eq('500');
-            expect(fnResult.payload).to.deep.equal({ error: 'Error: FakeError' });
-            expect(saveFnInvocationErrorStub.calledOnce).to.be.true;
-            expect(gotFnInvocation).to.be.not.undefined;
-            expect(gotFnInvocation.id).to.be.not.undefined;
-            expect(gotResponse).to.deep.equal('FakeError');
+            expect(fnResult.headers.getValue('x-http-status')).to.be.equal('500');
+            expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
+            expect(fnResult.headers.getValue('x-extra-info')).to.contain('FakeError');
 
             return Promise.resolve(null);
         });

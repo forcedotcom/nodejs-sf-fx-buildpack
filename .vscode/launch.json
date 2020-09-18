@@ -28,13 +28,13 @@
           "-u",
           "tdd",
           "--timeout",
-          "9999",
+          "99999",
           "--colors",
           "-r",
           "ts-node/register",
           "${file}"
       ],
-      "env": {"USER_FUNCTION_URI":"../middleware/test/fixtures/functions/mock"},
+      "env": {"SF_FUNCTION_PACKAGE_NAME":"../middleware/test/fixtures/functions/mock"},
       "cwd": "${fileDirname}",
       "internalConsoleOptions": "openOnSessionStart"
     },

@@ -16,7 +16,7 @@ export enum FunctionInvocationRequestStatusEnum {
 // Does not throw
 export async function saveFnInvocation(logger: Logger,
                                        fnInvocation: FunctionInvocationRequest,
-                                       response: any,
+                                       response: FunctionInvocationResponse,
                                        status: FunctionInvocationRequestStatusEnum = FunctionInvocationRequestStatusEnum.Success): Promise<void> {
     if (!fnInvocation) {
         return;
@@ -31,8 +31,14 @@ export async function saveFnInvocation(logger: Logger,
     }
 }
 
-export async function saveFnInvocationError(logger: Logger, fnInvocation: FunctionInvocationRequest, response: any): Promise<void> {
+export async function saveFnInvocationError(logger: Logger, fnInvocation: FunctionInvocationRequest, response: FunctionInvocationResponse): Promise<void> {
     return await saveFnInvocation(logger, fnInvocation, response, FunctionInvocationRequestStatusEnum.Error);
+}
+
+export interface FunctionInvocationResponse {
+    code: string;
+    response: any;
+    extraInfo?: any;
 }
 
 // TODO: Remove when FunctionInvocationRequest is deprecated.
