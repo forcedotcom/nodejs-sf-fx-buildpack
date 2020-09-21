@@ -106,17 +106,14 @@ describe('Context Tests', () => {
         expect(context[FN_INVOCATION].id).to.equal(fnInvocationId);
 
         // Validate ConnectionConfig has expected values
-        // TODO: Prevent this, somehow.
         const connConfig: ConnectionConfig = context.org.data['connConfig'];
         expect(connConfig).to.exist;
-        // TODO: Prevent access to accessToken
         expect(connConfig.accessToken).to.equal(accessToken);
         expect(connConfig.apiVersion).to.equal(data.context.apiVersion);
         expect(connConfig.instanceUrl).to.equal(data.context.userContext.salesforceBaseUrl);
 
         // Ensure accessToken was not serialized
         const dataApiJSON = JSON.stringify(context.org.data);
-        expect(dataApiJSON).to.exist;
         expect(dataApiJSON).to.not.contain('accessToken');
 
         // Validate Connection has expected values
@@ -137,10 +134,11 @@ describe('Context Tests', () => {
         validateContext(data, context);
 
         // Requires accessToken
-        expect(context.org.data).to.not.exist;
-        expect(context.org.unitOfWork).to.not.exist;
-        expect(context.org.unitOfWorkGraph).to.not.exist;
-        expect(context[FN_INVOCATION]).to.not.exist;
+        expect(context.org.data).to.exist;
+        expect(JSON.stringify(context.org.data)).to.not.contain('accessToken');
+        expect(context.org.unitOfWork).to.exist;
+        expect(context.org.unitOfWorkGraph).to.exist;
+        expect(context[FN_INVOCATION]).to.exist;
     });
 
     it('validate API version override', () => {

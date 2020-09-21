@@ -1,25 +1,66 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+const path = require('path');
 import {Logger, LoggerFormat, LoggerLevel} from '@salesforce/core/lib/logger';
 import {CloudEvent,Headers as CEHeaders,Receiver} from 'cloudevents';
 const {Message} = require('@projectriff/message');
-const http = require('http');
-const https = require('https');
 import {applySfFnMiddleware} from './lib/sfMiddleware';
-import {
-    FunctionInvocationRequest,
-    saveFnInvocation,
-    saveFnInvocationError
-} from './lib/FunctionInvocationRequest';
-import {
-    ASYNC_CE_TYPE,
-    ASYNC_FULFILL_HEADER,
-    FN_INVOCATION,
-    X_FORWARDED_HOST,
-    X_FORWARDED_PROTO
-} from './lib/constants';
 import loadUserFunction from './userFnLoader';
+import { Context, InvocationEvent } from '@salesforce/salesforce-sdk';
 
+const FUNCTION_ERROR_CODE = '500';
+const INTERNAL_SERVER_ERROR_CODE = '503';
+export const CURRENT_FILENAME: string = __filename;
+
+export class ExtraInfo {
+    constructor(
+        public readonly requestId: string,  // incoming x-request-id
+        public readonly source: string,     // incoming ce.source
+        public readonly execTimeMs: number, // function invocation time
+        public stack = ''          // error stack, if applicable
+        ) {
+        this.setStack(stack);
+    }
+
+    public setStack(stack: string): void {
+        this.stack = this.trim(stack);
+    }
+
+    private trim(stack = ''): string {
+        if (stack.length === 0) {
+            return stack
+        }
+
+        // Find index of last desired stack frame
+        const pathParts = CURRENT_FILENAME.split(path.sep);
+        const stopPoint = pathParts.slice(pathParts.length - 3).join(path.sep);
+        const stackParts = stack.split('\n');
+        let foundLastIdx = stackParts.length - 1;
+        for (; foundLastIdx > 0; foundLastIdx--) {
+            if (stackParts[foundLastIdx].includes(stopPoint)) {
+                break;
+            }
+        }
+
+        // Return stack to last desired frame
+        return stackParts.slice(0, foundLastIdx + 1).join('\n');
+    }
+}
+class MiddlewareError extends Error {
+
+    public readonly stack: string;
+
+    constructor(public readonly err: Error, public readonly code: string) {
+        super(err.message);
+        Object.setPrototypeOf(this, new.target.prototype);
+        // TODO: Trim stack from this file up
+        this.stack = err.stack
+    }
+
+    public toString(): string {
+        return this.err.toString();
+    }
+}
 
 function createLogger(requestID?: string): Logger {
     const logger = new Logger({
@@ -37,75 +78,22 @@ function createLogger(requestID?: string): Logger {
     return logger;
 }
 
-function errorMessage(error: Error): any {
+function buildErrorResponse(extraInfo: ExtraInfo, err: Error): any {
+    // any error in user-function-space should be considered a 500 toerhwi
+    // ensure we send down application/json in this case
+    extraInfo.setStack(err.stack);
+    return buildResponse(err instanceof MiddlewareError ? err.code : INTERNAL_SERVER_ERROR_CODE, err.message, extraInfo);
+}
+
+function buildResponse(code: string, response: any, extraInfo: ExtraInfo): any {
     // any error in user-function-space should be considered a 500
     // ensure we send down application/json in this case
     return Message.builder()
         .addHeader('content-type', 'application/json')
-        .addHeader('x-http-status', '500')
-        .payload({
-            error: error.toString(),
-        })
+        .addHeader('x-http-status', code)
+        .addHeader('x-extra-info', encodeURI(JSON.stringify(extraInfo)))
+        .payload(typeof response === 'string' ? response : JSON.stringify(response))
         .build();
-}
-
-function isAsyncRequest(type: string): boolean {
-    return type && type.startsWith(ASYNC_CE_TYPE);
-}
-
-// Invoke given function again to fulfill async request; response is not handled
-async function invokeAsyncFn(logger: Logger, cloudEvent: CloudEvent, headers: any): Promise<void> {
-    // host header is required.  Headers are already convered to lower-case in systemFn.
-    const hostUrl = headers[X_FORWARDED_HOST];
-    if (!hostUrl) {
-        throw new Error('Unable to determine host for async invocation');
-    }
-
-    const hostParts = hostUrl.split(':');
-    let isHttps = true;
-    if (headers[X_FORWARDED_PROTO]) {
-        isHttps = headers[X_FORWARDED_PROTO].toLowerCase() === 'https';
-    }
-
-    // length changes after body content updates
-    delete headers['content-length'];
-
-    const options = {
-        hostname: hostParts[0],
-        port: hostParts[1] ? parseInt(hostParts[1]) : (isHttps ? 443 : 80),
-        method: 'POST',
-        path: '/',
-        headers: {...headers, [ASYNC_FULFILL_HEADER]: true}
-    };
-
-    // Invoke function and ignore response
-    const lib = isHttps ? https : http;
-    return new Promise((resolve, reject) => {
-        const expectedErrCode = 'EXPECTED_ECONNRESET';
-        const req = lib.request(options);
-        req.on('error', async (err) => {
-            if (req.destroyed && err['code'] === expectedErrCode) {
-                // Expected to terminate response
-                resolve();
-            } else {
-                // Return error for async request client
-                reject(err);
-            }
-        });
-
-        // Forward original request
-        req.write(cloudEvent.toString());
-
-        // Flush and finishes sending the request
-        req.end(() => {
-            logger.info('Forwarded async request');
-
-            // Forget response and destroy the socket
-            const expectedErr = new Error();
-            expectedErr['code'] = expectedErrCode;
-            req.destroy(expectedErr);
-        });
-    });
 }
 
 /**
@@ -144,7 +132,7 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
 
     // Core API 48.0 and below send an 0.2-format CloudEvent that needs to be reformatted
     if (bodyIsObj &&
-            'specVersion' in body && 
+            'specVersion' in body &&
             '0.2' === body['specVersion']) {
         _mv(body, 'specVersion', 'specversion', '0.3');
         _mv(body, 'contentType', 'datacontenttype');
@@ -153,8 +141,8 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
         logger.info('Translated cloudevent 0.2 to 0.3 format');
 
         // Initial deployment of Core API 50.0 send the wrong content-type, need to adjust
-    } else if (ctype.includes('application/json') && 
-            bodyIsObj && 
+    } else if (ctype.includes('application/json') &&
+            bodyIsObj &&
             'specversion' in body) {
         headers['content-type'] = 'application/cloudevents+json';
         logger.info('Forced content-type to: application/cloudevents+json');
@@ -162,12 +150,12 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
 
     // make a clone of the body if object - cloudevents sdk deletes keys as it parses.
     // otherwise Receiver will do a JSON parse so need to re-stringify any string body
-    const bodyShallowCopy = bodyIsObj ? Object.assign({}, body) : 
+    const bodyShallowCopy = bodyIsObj ? Object.assign({}, body) :
             JSON.stringify(body);
     return Receiver.accept(headers, bodyShallowCopy);
 }
 
-const userFn = loadUserFunction(process.env["SF_FUNCTION_PACKAGE_NAME"]);
+const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
 
 export default async function systemFn(message: any): Promise<any> {
     // Remap riff headers to a standard JS object with lower-case keys
@@ -177,7 +165,7 @@ export default async function systemFn(message: any): Promise<any> {
     let bodyPayload: any = message['payload'];
     if (typeof bodyPayload === 'object' &&
             'data' in bodyPayload &&
-            'ce-id' in headers && 
+            'ce-id' in headers &&
             headers['ce-specversion'] === '0.3') {
         bodyPayload = bodyPayload['data'];
     }
@@ -185,7 +173,7 @@ export default async function systemFn(message: any): Promise<any> {
     // Initialize logger with request ID
     const requestId = headers['ce-id'] || headers['x-request-id'] || bodyPayload['id'];
     const requestLogger = createLogger(requestId);
-  
+
     // Parse input according to Cloudevents 0.2, 0.3 or 1.0 specification
     let cloudEvent: CloudEvent;
     try {
@@ -194,60 +182,38 @@ export default async function systemFn(message: any): Promise<any> {
         // Only log toplevel input keys since values can contain credentials or PII
         requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body keys=${Object.keys(bodyPayload)}`);
         requestLogger.fatal(parseErr);
-        return Message.builder()
-            .addHeader('content-type', 'application/json')
-            .addHeader('x-http-status', '400')
-            .payload(JSON.stringify({error: parseErr.toString()}))
-            .build();
+        return buildResponse('400', parseErr.message, parseErr.stack);
     }
 
-    let isAsync = false;
+    let execTimeMs = -1;
     try {
-        // If initial async request, invoke function again and release request
-        isAsync = isAsyncRequest(cloudEvent.type);
-        if (isAsync) {
-            if (!headers[ASYNC_FULFILL_HEADER.toLowerCase()]) {
-                requestLogger.info('Received initial async request');
-                await invokeAsyncFn(requestLogger, cloudEvent, headers);
-                // Function invoked on forwarded request; release initial client request
-                return Message.builder()
-                    .addHeader('content-type', 'application/json')
-                    .addHeader('x-http-status', '202')
-                    .payload('')
-                    .build();
-            } else {
-                requestLogger.info('Fulfilling async request');
-            }
-        }
-
         let result: any;
-        let fnInvocation: FunctionInvocationRequest;
+        let event: InvocationEvent;
+        let context: Context;
+        let logger: Logger;
         try {
             // Create function param objects from request
-            const [event, context, logger] = applySfFnMiddleware(cloudEvent, headers, requestLogger);
-            fnInvocation = context[FN_INVOCATION];
-
-            // Invoke requested function
-            result = await userFn(...[event, context, logger]);
-
-            // If async, save result to associated function invocation request
-            if (isAsync) {
-                await saveFnInvocation(requestLogger, fnInvocation, result);
-            }
-
-            // Currently, riff doesn't support undefined or null return values
-            return result || '';
-        } catch (invokeErr) {
-            // If async, save error to associated function invocation request
-            if (isAsync) {
-                await saveFnInvocationError(requestLogger, fnInvocation, invokeErr.message);
-            }
-
-            throw invokeErr;
+            [event, context, logger] = applySfFnMiddleware(cloudEvent, headers, requestLogger);
+        } catch (apiSetupError) {
+            throw new MiddlewareError(apiSetupError, INTERNAL_SERVER_ERROR_CODE);
         }
+
+        // Invoke requested function
+        const startExecTimeMs = new Date().getTime();
+        try {
+            result = await userFn(...[event, context, logger]);
+        } catch (invokeErr) {
+            throw new MiddlewareError(invokeErr, FUNCTION_ERROR_CODE);
+        } finally {
+            execTimeMs = (new Date().getTime()) - startExecTimeMs;
+        }
+
+        // Currently, riff doesn't support undefined or null return values
+        return buildResponse('200', result || '', new ExtraInfo(requestId, cloudEvent.source, execTimeMs));
+
     } catch (error) {
         requestLogger.error(error.toString());
-        return errorMessage(error);
+        return buildErrorResponse(new ExtraInfo(requestId, cloudEvent.source, execTimeMs), error);
     }
 }
 
