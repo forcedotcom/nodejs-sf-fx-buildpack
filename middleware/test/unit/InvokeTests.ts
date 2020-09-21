@@ -180,9 +180,7 @@ describe('Invoke Function Tests', () => {
 
         extraInfo.setStack(`Error: ${msg}\n    at parseCloudEvent (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/index.ts:156:7)\n    at Object.systemFn [as default] (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/index.ts:183:22)\n    at Context.<anonymous> (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/test/unit/InvokeTests.ts:226:66)\n    at callFn (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:372:21)\n    at Test.Runnable.run (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:364:7)\n    at Runner.runTest (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:455:10)\n    at /home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:573:12\n    at next (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:369:14)`);
         expect(extraInfo.stack).to.not.be.empty;
-        expect(extraInfo.stack).to.contain('%20'); // URI encoded - space
-        expect(extraInfo.stack).to.contain('%0A'); // URI encoded - newline
-        const stackParts = decodeURI(extraInfo.stack).split('\n');
+        const stackParts = extraInfo.stack.split('\n');
         expect(stackParts).to.be.lengthOf(3);
         expect(stackParts[0]).to.be.contain(msg);
 
@@ -203,7 +201,10 @@ describe('Invoke Function Tests', () => {
             expect(fnResult.headers).to.be.not.null;
             expect(fnResult.headers.getValue('x-http-status')).to.be.equal('200');
             expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
-            const extraInfo = JSON.parse(fnResult.headers.getValue('x-extra-info'));
+            const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
+            expect(extraInfoEncoded).to.contain('%22'); // URI encoded - quote
+            expect(extraInfoEncoded).to.contain('%7B'); // URI encoded - open paran
+            const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
             expect(extraInfo.requestId).to.not.be.empty;
             expect(extraInfo.source).to.not.be.empty;
             expect(extraInfo.execTimeMs).to.be.above(0);
@@ -222,13 +223,15 @@ describe('Invoke Function Tests', () => {
             expect(fnResult).to.be.not.null;
             expect(fnResult.headers.getValue('x-http-status')).to.be.equal('503');
             expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
-            const extraInfo = JSON.parse(fnResult.headers.getValue('x-extra-info'));
+            const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
+            expect(extraInfoEncoded).to.contain('%20'); // URI encoded - space
+            expect(extraInfoEncoded).to.contain('%5Cn'); // URI encoded - newline
+            const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
             expect(extraInfo.requestId).to.not.be.empty;
             expect(extraInfo.source).to.not.be.empty;
             expect(extraInfo.execTimeMs).to.be.equal(-1);  // function was not invoked
             expect(extraInfo.stack).to.not.be.empty
             expect(extraInfo.stack).to.contain('applySfFnMiddleware');
-            expect(extraInfo.stack).to.contain('%20'); // URI encoded
             expect(decodeURI(extraInfo.stack)).to.contain('Error: Data field of the cloudEvent not provided in the request');
         });
 
@@ -242,7 +245,10 @@ describe('Invoke Function Tests', () => {
             expect(fnResult).to.be.not.null;
             expect(fnResult.headers.getValue('x-http-status')).to.be.equal('500');
             expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
-            const extraInfo = JSON.parse(fnResult.headers.getValue('x-extra-info'));
+            const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
+            expect(extraInfoEncoded).to.contain('%20'); // URI encoded - space
+            expect(extraInfoEncoded).to.contain('%5Cn'); // URI encoded - newline
+            const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
             expect(extraInfo.requestId).to.not.be.empty;
             expect(extraInfo.source).to.not.be.empty;
             expect(extraInfo.execTimeMs).to.be.above(0);

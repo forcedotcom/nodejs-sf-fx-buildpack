@@ -19,11 +19,11 @@ export class ExtraInfo {
         public readonly execTimeMs: number, // function invocation time
         public stack = ''          // error stack, if applicable
         ) {
-        this.stack = encodeURI(this.trim(stack));
+        this.setStack(stack);
     }
 
     public setStack(stack: string): void {
-        this.stack = encodeURI(this.trim(stack));
+        this.stack = this.trim(stack);
     }
 
     private trim(stack = ''): string {
@@ -91,7 +91,7 @@ function buildResponse(code: string, response: any, extraInfo: ExtraInfo): any {
     return Message.builder()
         .addHeader('content-type', 'application/json')
         .addHeader('x-http-status', code)
-        .addHeader('x-extra-info', JSON.stringify(extraInfo))
+        .addHeader('x-extra-info', encodeURI(JSON.stringify(extraInfo)))
         .payload(typeof response === 'string' ? response : JSON.stringify(response))
         .build();
 }
