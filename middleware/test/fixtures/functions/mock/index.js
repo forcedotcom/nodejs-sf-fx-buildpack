@@ -10,9 +10,12 @@
  * @param logger:  logging handler used to capture application logs and traces specific
  *                 to a given execution of a function.
  */
-module.exports = function (event, context, logger) {
+module.exports = async function (event, context, logger) {
     if (event.data && event.data.shouldThrowError) {
         throw new Error('FakeError');
     }
+
+    await new Promise(r => setTimeout(r, 1000));
+
     return {'success': true};
 }

@@ -192,12 +192,18 @@ describe('Invoke Function Tests', () => {
                 .build());
             expect(fnResult).to.be.not.undefined;
             expect(fnResult).to.be.not.null;
-            expect(fnResult).to.be.deep.equal({ success: true });
-
-            return Promise.resolve(null);
+            expect(fnResult.headers).to.be.not.null;
+            expect(fnResult.headers.getValue('x-http-status')).to.be.equal('200');
+            expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
+            const extraInfo = JSON.parse(fnResult.headers.getValue('x-extra-info'));
+            expect(extraInfo.requestId).to.not.be.empty;
+            expect(extraInfo.source).to.not.be.empty;
+            expect(extraInfo.execTimeMs).to.be.above(0);
+            expect(extraInfo.stack).to.have.lengthOf(0);
+            expect(fnResult.payload).to.be.equal(JSON.stringify({ success: true }));
         });
 
-        it('should handle invocation - internal error, specVersion=' + specVersion, async () => {
+        it('should handle invocation - internal error (before function invocation), specVersion=' + specVersion, async () => {
             const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
             delete cloudEventRequest.data;
             const fnResult = await require('../../index').default(Message.builder()
@@ -208,9 +214,14 @@ describe('Invoke Function Tests', () => {
             expect(fnResult).to.be.not.null;
             expect(fnResult.headers.getValue('x-http-status')).to.be.equal('503');
             expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
-            expect(fnResult.headers.getValue('x-extra-info')).to.contain('applySfFnMiddleware');
-
-            return Promise.resolve(null);
+            const extraInfo = JSON.parse(fnResult.headers.getValue('x-extra-info'));
+            expect(extraInfo.requestId).to.not.be.empty;
+            expect(extraInfo.source).to.not.be.empty;
+            expect(extraInfo.execTimeMs).to.be.equal(-1);  // function was not invoked
+            expect(extraInfo.stack).to.not.be.empty
+            expect(extraInfo.stack).to.contain('applySfFnMiddleware');
+            expect(extraInfo.stack).to.contain('%20'); // URI encoded
+            expect(decodeURI(extraInfo.stack)).to.contain('Error: Data field of the cloudEvent not provided in the request');
         });
 
         it('should handle invocation - function error, specVersion=' + specVersion, async () => {
@@ -223,9 +234,12 @@ describe('Invoke Function Tests', () => {
             expect(fnResult).to.be.not.null;
             expect(fnResult.headers.getValue('x-http-status')).to.be.equal('500');
             expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
-            expect(fnResult.headers.getValue('x-extra-info')).to.contain('FakeError');
-
-            return Promise.resolve(null);
+            const extraInfo = JSON.parse(fnResult.headers.getValue('x-extra-info'));
+            expect(extraInfo.requestId).to.not.be.empty;
+            expect(extraInfo.source).to.not.be.empty;
+            expect(extraInfo.execTimeMs).to.be.above(0);
+            expect(extraInfo.stack).to.not.be.empty
+            expect(extraInfo.stack).to.contain('FakeError');
         });
     });
 });

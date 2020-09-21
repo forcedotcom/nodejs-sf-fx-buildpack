@@ -107,18 +107,16 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
     let dataApi: DataApi | undefined;
     let unitOfWork: UnitOfWork | undefined;
     let unitOfWorkGraph: UnitOfWorkGraph | undefined;
-    if (accessToken) {
-        const config: ConnectionConfig = new ConnectionConfig(
-            accessToken,
-            apiVersion,
-            userContext.salesforceBaseUrl
-        );
-        unitOfWork = new UnitOfWork(config, logger);
-        if (apiVersion >= APIVersion.V50) {
-            unitOfWorkGraph = new UnitOfWorkGraph(config, logger);
-        }
-        dataApi = new DataApi(config, logger);
+    const config: ConnectionConfig = new ConnectionConfig(
+        accessToken,
+        apiVersion,
+        userContext.salesforceBaseUrl
+    );
+    unitOfWork = new UnitOfWork(config, logger);
+    if (apiVersion >= APIVersion.V50) {
+        unitOfWorkGraph = new UnitOfWorkGraph(config, logger);
     }
+    dataApi = new DataApi(config, logger);
 
     return new Org(
         apiVersion,
@@ -154,7 +152,7 @@ function createContext(id: string, logger: Logger, secrets: Secrets, reqContext?
 
     // If functionInvocationId is provided, create and set FunctionInvocationRequest object
     let fnInvocation: FunctionInvocationRequest;
-    if (accessToken && functionInvocationId) {
+    if (functionInvocationId) {
         fnInvocation = new FunctionInvocationRequest(functionInvocationId, logger, org.data);
         context[FN_INVOCATION] = fnInvocation;
     }

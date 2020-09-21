@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
+const path = require('path');
 import {Logger, LoggerFormat, LoggerLevel} from '@salesforce/core/lib/logger';
 import {CloudEvent,Headers as CEHeaders,Receiver} from 'cloudevents';
 const {Message} = require('@projectriff/message');
@@ -9,7 +10,42 @@ import { Context, InvocationEvent } from '@salesforce/salesforce-sdk';
 
 const FUNCTION_ERROR_CODE = '500';
 const INTERNAL_SERVER_ERROR_CODE = '503';
+const CURRENT_FILENAME: string = __filename;
 
+class ExtraInfo {
+    constructor(
+        public readonly requestId: string,  // incoming x-request-id
+        public readonly source: string,     // incoming ce.source
+        public readonly execTimeMs: number, // function invocation time
+        public stack = ''          // error stack, if applicable
+        ) {
+        this.stack = encodeURI(this.trim(stack));
+    }
+
+    public setStack(stack: string): void {
+        this.stack = encodeURI(this.trim(stack));
+    }
+
+    private trim(stack: string): string {
+        if (stack.length === 0) {
+            return stack
+        }
+
+        // Find index of last desired stack frame
+        const pathParts = CURRENT_FILENAME.split(path.sep);
+        const stopPoint = pathParts.slice(pathParts.length - 3).join(path.sep);
+        const stackParts = stack.split('\n');
+        let foundLastIdx = stackParts.length - 1;
+        for (; foundLastIdx > 0; foundLastIdx--) {
+            if (stackParts[foundLastIdx].includes(stopPoint)) {
+                break;
+            }
+        }
+
+        // Return stack to last desired frame
+        return stackParts.slice(0, foundLastIdx).join('\n');
+    }
+}
 class MiddlewareError extends Error {
 
     public readonly stack: string;
@@ -42,19 +78,20 @@ function createLogger(requestID?: string): Logger {
     return logger;
 }
 
-function buildErrorResponse(err: Error): any {
+function buildErrorResponse(extraInfo: ExtraInfo, err: Error): any {
     // any error in user-function-space should be considered a 500 toerhwi
     // ensure we send down application/json in this case
-    return buildResponse(err instanceof MiddlewareError ? err.code : INTERNAL_SERVER_ERROR_CODE, err.message, err.stack);
+    extraInfo.setStack(err.stack);
+    return buildResponse(err instanceof MiddlewareError ? err.code : INTERNAL_SERVER_ERROR_CODE, err.message, extraInfo);
 }
 
-function buildResponse(code: string, response: any, extraInfo?: string): any {
+function buildResponse(code: string, response: any, extraInfo: ExtraInfo): any {
     // any error in user-function-space should be considered a 500
     // ensure we send down application/json in this case
     return Message.builder()
         .addHeader('content-type', 'application/json')
         .addHeader('x-http-status', code)
-        .addHeader('x-extra-info', extraInfo || '')
+        .addHeader('x-extra-info', JSON.stringify(extraInfo))
         .payload(typeof response === 'string' ? response : JSON.stringify(response))
         .build();
 }
@@ -118,7 +155,7 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
     return Receiver.accept(headers, bodyShallowCopy);
 }
 
-const userFn = loadUserFunction(process.env["SF_FUNCTION_PACKAGE_NAME"]);
+const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
 
 export default async function systemFn(message: any): Promise<any> {
     // Remap riff headers to a standard JS object with lower-case keys
@@ -148,6 +185,7 @@ export default async function systemFn(message: any): Promise<any> {
         return buildResponse('400', parseErr.message, parseErr.stack);
     }
 
+    let execTimeMs = -1;
     try {
         let result: any;
         let event: InvocationEvent;
@@ -161,18 +199,21 @@ export default async function systemFn(message: any): Promise<any> {
         }
 
         // Invoke requested function
+        const startExecTimeMs = new Date().getTime();
         try {
             result = await userFn(...[event, context, logger]);
         } catch (invokeErr) {
             throw new MiddlewareError(invokeErr, FUNCTION_ERROR_CODE);
+        } finally {
+            execTimeMs = (new Date().getTime()) - startExecTimeMs;
         }
 
         // Currently, riff doesn't support undefined or null return values
-        return result || '';
+        return buildResponse('200', result || '', new ExtraInfo(requestId, cloudEvent.source, execTimeMs));
 
     } catch (error) {
         requestLogger.error(error.toString());
-        return buildErrorResponse(error);
+        return buildErrorResponse(new ExtraInfo(requestId, cloudEvent.source, execTimeMs), error);
     }
 }
 
