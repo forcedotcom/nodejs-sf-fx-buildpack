@@ -103,20 +103,18 @@ function createOrg(logger: Logger, reqContext: any, accessToken?: string): Org {
 
     const user = createUser(userContext);
 
-    // If accessToken was provided, setup APIs.
-    let dataApi: DataApi | undefined;
-    let unitOfWork: UnitOfWork | undefined;
+    logger.info(`accessToken${accessToken ? ' ' : ' NOT '}provided.`);
     let unitOfWorkGraph: UnitOfWorkGraph | undefined;
     const config: ConnectionConfig = new ConnectionConfig(
         accessToken,
         apiVersion,
         userContext.salesforceBaseUrl
     );
-    unitOfWork = new UnitOfWork(config, logger);
+    const unitOfWork = new UnitOfWork(config, logger);
     if (apiVersion >= APIVersion.V50) {
         unitOfWorkGraph = new UnitOfWorkGraph(config, logger);
     }
-    dataApi = new DataApi(config, logger);
+    const dataApi = new DataApi(config, logger);
 
     return new Org(
         apiVersion,

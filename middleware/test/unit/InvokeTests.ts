@@ -177,6 +177,7 @@ describe('Invoke Function Tests', () => {
     it('should parse stack', async () => {
         const extraInfo = new ExtraInfo('requestId', 'source', 1);
         const msg = 'Ooooops';
+
         extraInfo.setStack(`Error: ${msg}\n    at parseCloudEvent (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/index.ts:156:7)\n    at Object.systemFn [as default] (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/index.ts:183:22)\n    at Context.<anonymous> (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/test/unit/InvokeTests.ts:226:66)\n    at callFn (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:372:21)\n    at Test.Runnable.run (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:364:7)\n    at Runner.runTest (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:455:10)\n    at /home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:573:12\n    at next (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:369:14)`);
         expect(extraInfo.stack).to.not.be.empty;
         expect(extraInfo.stack).to.contain('%20'); // URI encoded - space
@@ -184,6 +185,9 @@ describe('Invoke Function Tests', () => {
         const stackParts = decodeURI(extraInfo.stack).split('\n');
         expect(stackParts).to.be.lengthOf(3);
         expect(stackParts[0]).to.be.contain(msg);
+
+        extraInfo.setStack(undefined);
+        expect(extraInfo.stack).to.be.lengthOf(0);
     });
 
     specVersions.forEach(function(specVersion : string) {

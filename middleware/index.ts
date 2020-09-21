@@ -26,7 +26,7 @@ export class ExtraInfo {
         this.stack = encodeURI(this.trim(stack));
     }
 
-    private trim(stack: string): string {
+    private trim(stack = ''): string {
         if (stack.length === 0) {
             return stack
         }
