@@ -10,7 +10,7 @@ import { Context, InvocationEvent } from '@salesforce/salesforce-sdk';
 
 const FUNCTION_ERROR_CODE = '500';
 const INTERNAL_SERVER_ERROR_CODE = '503';
-const CURRENT_FILENAME: string = __filename;
+export const CURRENT_FILENAME: string = __filename;
 
 export class ExtraInfo {
     constructor(

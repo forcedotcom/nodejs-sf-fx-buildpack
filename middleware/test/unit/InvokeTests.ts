@@ -20,7 +20,7 @@ import {Message} from '@projectriff/message';
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
-import {ExtraInfo} from '../../index';
+import {CURRENT_FILENAME, ExtraInfo} from '../../index';
 import {applySfFnMiddleware} from '../../lib/sfMiddleware';
 import {FN_INVOCATION} from '../../lib/constants';
 import * as fnInvRequest from '../../lib/FunctionInvocationRequest';
@@ -178,7 +178,7 @@ describe('Invoke Function Tests', () => {
         const extraInfo = new ExtraInfo('requestId', 'source', 1);
         const msg = 'Ooooops';
 
-        extraInfo.setStack(`Error: ${msg}\n    at parseCloudEvent (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/index.ts:156:7)\n    at Object.systemFn [as default] (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/index.ts:183:22)\n    at Context.<anonymous> (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/test/unit/InvokeTests.ts:226:66)\n    at callFn (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:372:21)\n    at Test.Runnable.run (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:364:7)\n    at Runner.runTest (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:455:10)\n    at /home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:573:12\n    at next (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:369:14)`);
+        extraInfo.setStack(`Error: ${msg}\n    at parseCloudEvent (${CURRENT_FILENAME}:156:7)\n    at Object.systemFn [as default] (${CURRENT_FILENAME}:183:22)\n    at Context.<anonymous> (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/test/unit/InvokeTests.ts:226:66)\n    at callFn (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:372:21)\n    at Test.Runnable.run (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:364:7)\n    at Runner.runTest (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:455:10)\n    at /home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:573:12\n    at next (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:369:14)`);
         expect(extraInfo.stack).to.not.be.empty;
         const stackParts = extraInfo.stack.split('\n');
         expect(stackParts).to.be.lengthOf(3);

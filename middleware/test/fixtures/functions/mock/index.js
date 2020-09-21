@@ -15,7 +15,7 @@ module.exports = async function (event, context, logger) {
         throw new Error('FakeError');
     }
 
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 2000));
 
     return {'success': true};
 }
