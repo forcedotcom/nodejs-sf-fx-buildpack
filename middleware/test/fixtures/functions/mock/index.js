@@ -11,11 +11,11 @@
  *                 to a given execution of a function.
  */
 module.exports = async function (event, context, logger) {
+    await new Promise(r => setTimeout(r, 2000));
+
     if (event.data && event.data.shouldThrowError) {
         throw new Error('FakeError');
     }
-
-    await new Promise(r => setTimeout(r, 2000));
 
     return {'success': true};
 }
