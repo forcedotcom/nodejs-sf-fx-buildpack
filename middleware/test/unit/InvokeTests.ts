@@ -14,16 +14,13 @@ import {
     FakeFunction,
     generateCloudevent,
     generateData,
-    generateCloudEventObjs,
-    hostHeader,
-    hostnameHeaderPart,
-    portHeaderPart
+    generateCloudEventObjs
 } from './FunctionTestUtils';
 import {Message} from '@projectriff/message';
 const http = require('http');
 const https = require('https');
 const PassThrough = require('stream').PassThrough;
-//import require('../../index') from '../../index';
+import {ExtraInfo} from '../../index';
 import {applySfFnMiddleware} from '../../lib/sfMiddleware';
 import {FN_INVOCATION} from '../../lib/constants';
 import * as fnInvRequest from '../../lib/FunctionInvocationRequest';
@@ -127,7 +124,6 @@ describe('Invoke Function Tests', () => {
         expect(context.org.id).to.equal(org.id);
         const user: User = fakeFn.invokeParams.context.org.user;
         expect(context.org.user.id).to.equal(user.id);
-        return Promise.resolve(null);
     });
 
     it('should have payload', async () => {
@@ -144,8 +140,6 @@ describe('Invoke Function Tests', () => {
         // Validate Cloudevent instance payload;
         const pdfPayload: PdfEvent = fakeFn.invokeParams.event;
         expect(event.url).to.equal(pdfPayload.url);
-
-        return Promise.resolve(null);
     });
 
     it('should handle FunctionInvocation', async () => {
@@ -178,8 +172,18 @@ describe('Invoke Function Tests', () => {
         expect(values).to.be.not.null;
         expect(values.ResponseBody).to.be.not.undefined;
         expect(values.ResponseBody).to.be.not.null;
+    });
 
-        return Promise.resolve(null);
+    it('should parse stack', async () => {
+        const extraInfo = new ExtraInfo('requestId', 'source', 1);
+        const msg = 'Ooooops';
+        extraInfo.setStack(`Error: ${msg}\n    at parseCloudEvent (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/index.ts:156:7)\n    at Object.systemFn [as default] (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/index.ts:183:22)\n    at Context.<anonymous> (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/test/unit/InvokeTests.ts:226:66)\n    at callFn (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:372:21)\n    at Test.Runnable.run (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:364:7)\n    at Runner.runTest (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:455:10)\n    at /home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:573:12\n    at next (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:369:14)`);
+        expect(extraInfo.stack).to.not.be.empty;
+        expect(extraInfo.stack).to.contain('%20'); // URI encoded - space
+        expect(extraInfo.stack).to.contain('%0A'); // URI encoded - newline
+        const stackParts = decodeURI(extraInfo.stack).split('\n');
+        expect(stackParts).to.be.lengthOf(3);
+        expect(stackParts[0]).to.be.contain(msg);
     });
 
     specVersions.forEach(function(specVersion : string) {

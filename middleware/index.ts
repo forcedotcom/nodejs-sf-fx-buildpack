@@ -12,7 +12,7 @@ const FUNCTION_ERROR_CODE = '500';
 const INTERNAL_SERVER_ERROR_CODE = '503';
 const CURRENT_FILENAME: string = __filename;
 
-class ExtraInfo {
+export class ExtraInfo {
     constructor(
         public readonly requestId: string,  // incoming x-request-id
         public readonly source: string,     // incoming ce.source
@@ -43,7 +43,7 @@ class ExtraInfo {
         }
 
         // Return stack to last desired frame
-        return stackParts.slice(0, foundLastIdx).join('\n');
+        return stackParts.slice(0, foundLastIdx + 1).join('\n');
     }
 }
 class MiddlewareError extends Error {
