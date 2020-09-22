@@ -8,16 +8,19 @@ import {applySfFnMiddleware} from './lib/sfMiddleware';
 import loadUserFunction from './userFnLoader';
 import { Context, InvocationEvent } from '@salesforce/salesforce-sdk';
 
-const FUNCTION_ERROR_CODE = '500';
-const INTERNAL_SERVER_ERROR_CODE = '503';
+const SUCCESS_CODE = 200;
+const FUNCTION_ERROR_CODE = 500;
+const INTERNAL_SERVER_ERROR_CODE = 503;
 export const CURRENT_FILENAME: string = __filename;
 
 export class ExtraInfo {
     constructor(
-        public readonly requestId: string,  // incoming x-request-id
-        public readonly source: string,     // incoming ce.source
-        public readonly execTimeMs: number, // function invocation time
-        public stack = ''          // error stack, if applicable
+        public readonly requestId: string,        // incoming x-request-id
+        public readonly source: string,           // incoming ce.source
+        public readonly execTimeMs: number,       // function invocation time
+        public readonly statusCode: number,       // status code of request
+        public readonly isFunctionError = false,  // error in function, if applicable
+        public stack = ''                         // error stack, if applicable
         ) {
         this.setStack(stack);
     }
@@ -50,15 +53,20 @@ class MiddlewareError extends Error {
 
     public readonly stack: string;
 
-    constructor(public readonly err: Error, public readonly code: string) {
+    constructor(public readonly err: Error, public readonly code = INTERNAL_SERVER_ERROR_CODE) {
         super(err.message);
         Object.setPrototypeOf(this, new.target.prototype);
-        // TODO: Trim stack from this file up
         this.stack = err.stack
     }
 
     public toString(): string {
         return this.err.toString();
+    }
+}
+class FunctionError extends MiddlewareError {
+
+    constructor(err: Error) {
+        super(err, FUNCTION_ERROR_CODE);
     }
 }
 
@@ -78,21 +86,14 @@ function createLogger(requestID?: string): Logger {
     return logger;
 }
 
-function buildErrorResponse(extraInfo: ExtraInfo, err: Error): any {
-    // any error in user-function-space should be considered a 500 toerhwi
-    // ensure we send down application/json in this case
-    extraInfo.setStack(err.stack);
-    return buildResponse(err instanceof MiddlewareError ? err.code : INTERNAL_SERVER_ERROR_CODE, err.message, extraInfo);
-}
-
-function buildResponse(code: string, response: any, extraInfo: ExtraInfo): any {
+function buildResponse(statusCode: number, response: any, extraInfo: ExtraInfo): any {
     // any error in user-function-space should be considered a 500
     // ensure we send down application/json in this case
     return Message.builder()
         .addHeader('content-type', 'application/json')
-        .addHeader('x-http-status', code)
+        .addHeader('x-http-status', statusCode)
         .addHeader('x-extra-info', encodeURI(JSON.stringify(extraInfo)))
-        .payload(typeof response === 'string' ? response : JSON.stringify(response))
+        .payload(response)
         .build();
 }
 
@@ -174,20 +175,19 @@ export default async function systemFn(message: any): Promise<any> {
     const requestId = headers['ce-id'] || headers['x-request-id'] || bodyPayload['id'];
     const requestLogger = createLogger(requestId);
 
-    // Parse input according to Cloudevents 0.2, 0.3 or 1.0 specification
+    let execTimeMs = -1;
     let cloudEvent: CloudEvent;
     try {
-        cloudEvent = parseCloudEvent(requestLogger, headers, bodyPayload);
-    } catch(parseErr) {
-        // Only log toplevel input keys since values can contain credentials or PII
-        requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body keys=${Object.keys(bodyPayload)}`);
-        requestLogger.fatal(parseErr);
-        return buildResponse('400', parseErr.message, parseErr.stack);
-    }
+        // Parse input according to Cloudevents 0.2, 0.3 or 1.0 specification
+        try {
+            cloudEvent = parseCloudEvent(requestLogger, headers, bodyPayload);
+        } catch(parseErr) {
+            // Only log toplevel input keys since values can contain credentials or PII
+            requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body keys=${Object.keys(bodyPayload)}`);
+            requestLogger.fatal(parseErr);
+            throw new MiddlewareError(parseErr, 400);
+        }
 
-    let execTimeMs = -1;
-    try {
-        let result: any;
         let event: InvocationEvent;
         let context: Context;
         let logger: Logger;
@@ -195,25 +195,33 @@ export default async function systemFn(message: any): Promise<any> {
             // Create function param objects from request
             [event, context, logger] = applySfFnMiddleware(cloudEvent, headers, requestLogger);
         } catch (apiSetupError) {
-            throw new MiddlewareError(apiSetupError, INTERNAL_SERVER_ERROR_CODE);
+            throw new MiddlewareError(apiSetupError);
         }
 
         // Invoke requested function
+        let result: any;
         const startExecTimeMs = new Date().getTime();
         try {
             result = await userFn(...[event, context, logger]);
         } catch (invokeErr) {
-            throw new MiddlewareError(invokeErr, FUNCTION_ERROR_CODE);
+            throw new FunctionError(invokeErr);
         } finally {
             execTimeMs = (new Date().getTime()) - startExecTimeMs;
         }
 
         // Currently, riff doesn't support undefined or null return values
-        return buildResponse('200', result || '', new ExtraInfo(requestId, cloudEvent.source, execTimeMs));
+        return buildResponse(SUCCESS_CODE, result || '', new ExtraInfo(requestId, cloudEvent.source, execTimeMs, SUCCESS_CODE));
 
     } catch (error) {
         requestLogger.error(error.toString());
-        return buildErrorResponse(new ExtraInfo(requestId, cloudEvent.source, execTimeMs), error);
+        const extraInfo = new ExtraInfo(
+            requestId,
+            cloudEvent ? cloudEvent.source : 'n/a',
+            execTimeMs,
+            error instanceof MiddlewareError ? error.code : INTERNAL_SERVER_ERROR_CODE,
+            error instanceof FunctionError,
+            error.stack);
+        return buildResponse(extraInfo.statusCode, error.message, extraInfo);
     }
 }
 
