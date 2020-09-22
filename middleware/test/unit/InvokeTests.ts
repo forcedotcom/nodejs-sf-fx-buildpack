@@ -23,7 +23,6 @@ const PassThrough = require('stream').PassThrough;
 import {CURRENT_FILENAME, ExtraInfo} from '../../index';
 import {applySfFnMiddleware} from '../../lib/sfMiddleware';
 import {FN_INVOCATION} from '../../lib/constants';
-import * as fnInvRequest from '../../lib/FunctionInvocationRequest';
 
 interface PdfEvent {
     html?: string,
@@ -175,7 +174,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should parse stack', async () => {
-        const extraInfo = new ExtraInfo('requestId', 'source', 1);
+        const extraInfo = new ExtraInfo('requestId', 'source', 1, 220);
         const msg = 'Ooooops';
 
         extraInfo.setStack(`Error: ${msg}\n    at parseCloudEvent (${CURRENT_FILENAME}:156:7)\n    at Object.systemFn [as default] (${CURRENT_FILENAME}:183:22)\n    at Context.<anonymous> (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/test/unit/InvokeTests.ts:226:66)\n    at callFn (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:372:21)\n    at Test.Runnable.run (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runnable.js:364:7)\n    at Runner.runTest (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:455:10)\n    at /home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:573:12\n    at next (/home/cwall/git/nodejs-sf-fx-buildpack/middleware/node_modules/mocha/lib/runner.js:369:14)`);
@@ -199,7 +198,7 @@ describe('Invoke Function Tests', () => {
             expect(fnResult).to.be.not.undefined;
             expect(fnResult).to.be.not.null;
             expect(fnResult.headers).to.be.not.null;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.equal('200');
+            expect(fnResult.headers.getValue('x-http-status')).to.be.equal(200);
             expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
             const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
             expect(extraInfoEncoded).to.contain('%22'); // URI encoded - quote
@@ -208,8 +207,9 @@ describe('Invoke Function Tests', () => {
             expect(extraInfo.requestId).to.not.be.empty;
             expect(extraInfo.source).to.not.be.empty;
             expect(extraInfo.execTimeMs).to.be.above(0);
+            expect(extraInfo.statusCode).to.be.equal(200);
             expect(extraInfo.stack).to.have.lengthOf(0);
-            expect(fnResult.payload).to.be.equal(JSON.stringify({ success: true }));
+            expect(fnResult.payload).to.be.deep.equal({ success: true });
         });
 
         it('should handle invocation - internal error (before function invocation), specVersion=' + specVersion, async () => {
@@ -221,7 +221,7 @@ describe('Invoke Function Tests', () => {
                 .build());
             expect(fnResult).to.be.not.undefined;
             expect(fnResult).to.be.not.null;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.equal('503');
+            expect(fnResult.headers.getValue('x-http-status')).to.be.equal(503);
             expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
             const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
             expect(extraInfoEncoded).to.contain('%20'); // URI encoded - space
@@ -230,12 +230,15 @@ describe('Invoke Function Tests', () => {
             expect(extraInfo.requestId).to.not.be.empty;
             expect(extraInfo.source).to.not.be.empty;
             expect(extraInfo.execTimeMs).to.be.equal(-1);  // function was not invoked
+            expect(extraInfo.statusCode).to.be.equal(503);
+            expect(extraInfo.isFunctionError).to.be.false;
             expect(extraInfo.stack).to.not.be.empty
             expect(extraInfo.stack).to.contain('applySfFnMiddleware');
-            expect(decodeURI(extraInfo.stack)).to.contain('Error: Data field of the cloudEvent not provided in the request');
+            expect(decodeURI(extraInfo.stack)).to.contain('Error: ');
         });
 
         it('should handle invocation - function error, specVersion=' + specVersion, async () => {
+            // Payload signals function to throw an Error
             const cloudEventRequest = generateCloudevent(generateData(true, false, true), true, specVersion);
             const fnResult = await require('../../index').default(Message.builder()
                 .addHeader('content-type', 'application/json')
@@ -243,7 +246,7 @@ describe('Invoke Function Tests', () => {
                 .build());
             expect(fnResult).to.be.not.undefined;
             expect(fnResult).to.be.not.null;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.equal('500');
+            expect(fnResult.headers.getValue('x-http-status')).to.be.equal(500);
             expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
             const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
             expect(extraInfoEncoded).to.contain('%20'); // URI encoded - space
@@ -252,6 +255,8 @@ describe('Invoke Function Tests', () => {
             expect(extraInfo.requestId).to.not.be.empty;
             expect(extraInfo.source).to.not.be.empty;
             expect(extraInfo.execTimeMs).to.be.above(0);
+            expect(extraInfo.statusCode).to.be.equal(500);
+            expect(extraInfo.isFunctionError).to.be.true;
             expect(extraInfo.stack).to.not.be.empty
             expect(extraInfo.stack).to.contain('FakeError');
         });
