@@ -49,7 +49,6 @@ export class ExtraInfo {
         return stackParts.slice(0, foundLastIdx + 1).join('\n');
     }
 }
-
 class MiddlewareError extends Error {
 
     public readonly stack: string;
