@@ -188,16 +188,29 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
     return Receiver.accept(headers, bodyShallowCopy);
 }
 
-const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
-
-
-function getEnricher(logger): Function {
-  const sdk = require("@salesforce/salesforce-sdk");
-  if (sdk.enrichFn) {
-    return sdk.enrichFn;
+const enrichFn = function(userFn): Function {
+  let sdk, errmsg;
+  try {
+    sdk = require("@salesforce/salesforce-sdk");
+  } catch {
+    errmsg = "@salesforce/salesforce-sdk not installed.";
   }
-  throw "No SDK with enrichFn";
-}
+  if (!errmsg && !sdk.enrichFn) {
+    errmsg = "@salesforce/salesforce-sdk is outdated.";
+  }
+  if (errmsg) {
+    if (userFn.length === 3) {
+      throw `Cannot execute enriched function. ${errmsg}`;
+    } else {
+      console.warn(`Cannot provide enriched function arguments. ${errmsg}`);
+      return userFn;
+    }
+  }
+  return sdk.enrichFn(userFn);
+};
+
+const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
+const enrichedFn = enrichFn(userFn);
 
 export default async function systemFn(message: any): Promise<any> {
     // Remap riff headers to a standard JS object with lower-case keys
@@ -234,13 +247,6 @@ export default async function systemFn(message: any): Promise<any> {
             requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body keys=${Object.keys(bodyPayload)}`);
             requestLogger.fatal(parseErr);
             throw new MiddlewareError(parseErr, 400);
-        }
-
-        let enrichedFn;
-        try {
-            enrichedFn = getEnricher(requestLogger)(userFn);
-        } catch (apiSetupError) {
-            throw new MiddlewareError(apiSetupError);
         }
 
         // Invoke requested function
