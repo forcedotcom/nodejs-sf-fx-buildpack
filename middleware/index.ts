@@ -6,7 +6,6 @@ import {CloudEvent,Headers as CEHeaders,Receiver} from 'cloudevents';
 const {Message} = require('@projectriff/message');
 import {applySfFnMiddleware} from './lib/sfMiddleware';
 import loadUserFunction from './userFnLoader';
-import { Context, InvocationEvent } from '@salesforce/salesforce-sdk';
 
 const SUCCESS_CODE = 200;
 const FUNCTION_ERROR_CODE = 500;
@@ -125,11 +124,25 @@ function _mv(obj: any, fromKey: string, toKey: string, newVal: any = undefined):
 }
 
 /**
+ * Decode a "context" CloudEvent attribute that has been encoded to be compliant with the 1.0
+ * specification - will arrive as a Base64-encoded-JSON string.
+ * @param attrVal CloudEvent attribute value to decode.
+ * @returns null on empty attrVal, decoded JS Object if successful.
+ */
+function decode64(val?: string): JSON {
+    if (val != null) {
+        const buf = Buffer.from(val, 'base64');
+        return JSON.parse(buf.toString());
+    }
+    return null;
+}
+
+/**
  * Parse input header and body into Cloudevents specification
  */
 function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEvent {
     const ctype: string = (headers['content-type'] || '').toLowerCase();
-    const bodyIsObj: boolean = typeof body === 'object'
+    const bodyIsObj: boolean = typeof body === 'object';
 
     // Core API 48.0 and below send an 0.2-format CloudEvent that needs to be reformatted
     if (bodyIsObj &&
@@ -149,6 +162,25 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
         logger.info('Forced content-type to: application/cloudevents+json');
     }
 
+    const isSpec1 = parseInt(body.specversion.split('.')[0]) >= 1;
+    if (isSpec1) {
+      body.sfcontext = decode64(body.sfcontext);
+    } else {
+      body.sfcontext = body.data.context;
+      delete body.data.context;
+    }
+
+    if (isSpec1) {
+      body.sffncontext = decode64(body.sffncontext);
+    } else {
+      body.sffncontext = body.data.sfcontext;
+      delete body.data.sfcontext;
+    }
+
+    if (!isSpec1) {
+      body.data = body.data.payload;
+    }
+
     // make a clone of the body if object - cloudevents sdk deletes keys as it parses.
     // otherwise Receiver will do a JSON parse so need to re-stringify any string body
     const bodyShallowCopy = bodyIsObj ? Object.assign({}, body) :
@@ -157,6 +189,15 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
 }
 
 const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
+
+
+function getEnricher(logger): Function {
+  const sdk = require("@salesforce/salesforce-sdk");
+  if (sdk.enrichFn) {
+    return sdk.enrichFn;
+  }
+  throw "No SDK with enrichFn";
+}
 
 export default async function systemFn(message: any): Promise<any> {
     // Remap riff headers to a standard JS object with lower-case keys
@@ -195,12 +236,9 @@ export default async function systemFn(message: any): Promise<any> {
             throw new MiddlewareError(parseErr, 400);
         }
 
-        let event: InvocationEvent;
-        let context: Context;
-        let logger: Logger;
+        let enrichedFn;
         try {
-            // Create function param objects from request
-            [event, context, logger] = applySfFnMiddleware(cloudEvent, headers, requestLogger);
+            enrichedFn = getEnricher(requestLogger)(userFn);
         } catch (apiSetupError) {
             throw new MiddlewareError(apiSetupError);
         }
@@ -209,7 +247,10 @@ export default async function systemFn(message: any): Promise<any> {
         let result: any;
         const startExecTimeMs = new Date().getTime();
         try {
-            result = await userFn(...[event, context, logger]);
+          console.log("cloud event");
+          console.dir(cloudEvent.toJSON());
+          console.dir(headers)
+            result = await enrichedFn(cloudEvent.toJSON(), headers);
         } catch (invokeErr) {
             throw new FunctionError(invokeErr);
         } finally {
