@@ -4,7 +4,6 @@ const path = require('path');
 import {Logger, LoggerFormat, LoggerLevel} from '@salesforce/core/lib/logger';
 import {CloudEvent,Headers as CEHeaders,Receiver} from 'cloudevents';
 const {Message} = require('@projectriff/message');
-import {applySfFnMiddleware} from './lib/sfMiddleware';
 import loadUserFunction from './userFnLoader';
 
 const SUCCESS_CODE = 200;
@@ -195,7 +194,7 @@ const enrichFn = function(userFn): Function {
   } catch {
     errmsg = "@salesforce/salesforce-sdk not installed.";
   }
-  if (!errmsg && !sdk.enrichFn) {
+  if (!errmsg && !sdk?.enrichFn) {
     errmsg = "@salesforce/salesforce-sdk is outdated.";
   }
   if (errmsg) {
@@ -210,7 +209,13 @@ const enrichFn = function(userFn): Function {
 };
 
 const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
-const enrichedFn = enrichFn(userFn);
+
+let enrichedFn;
+try {
+  enrichedFn = enrichFn(userFn);
+} catch(e) {
+  console.error(e);
+}
 
 export default async function systemFn(message: any): Promise<any> {
     // Remap riff headers to a standard JS object with lower-case keys
@@ -255,7 +260,7 @@ export default async function systemFn(message: any): Promise<any> {
         try {
           console.log("cloud event");
           console.dir(cloudEvent.toJSON());
-          console.dir(headers)
+          console.dir(headers);
             result = await enrichedFn(cloudEvent.toJSON(), headers);
         } catch (invokeErr) {
             throw new FunctionError(invokeErr);
