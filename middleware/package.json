@@ -27,6 +27,7 @@
   "author": "TODO",
   "dependencies": {
     "@projectriff/message": "^1.0.0",
+    "@salesforce/core": "^2.12.3",
     "cloudevents": "^3.1.0"
   },
   "devDependencies": {
