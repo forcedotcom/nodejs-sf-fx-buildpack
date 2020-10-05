@@ -171,8 +171,15 @@ export default async function systemFn(message: any): Promise<any> {
         bodyPayload = bodyPayload['data'];
     }
 
-    // Initialize logger with request ID
+    // Determine request ID
     const requestId = headers['ce-id'] || headers['x-request-id'] || bodyPayload['id'];
+
+    // Handle health check calls identified by x-health-check request header
+    if ('x-health-check' in headers && headers['x-health-check'] === "true") {
+        return buildResponse(SUCCESS_CODE, "OK", new ExtraInfo(requestId, "x-health-check", 1, SUCCESS_CODE))
+    }
+
+    // Initialize logger with request ID
     const requestLogger = createLogger(requestId);
 
     let execTimeMs = -1;
