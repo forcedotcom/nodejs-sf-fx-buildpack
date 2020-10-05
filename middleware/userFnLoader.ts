@@ -1,17 +1,68 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-var-requires */
 
-export default function loadUserFunction(packageName: string): any {
-  if (!packageName) {
-    throw `Could not locate salesforce function module: package name not defined.`;
-  }
-  let mod;
-  try {
-    mod = require(packageName);
-  } catch (err) {
-    throw `Could not locate salesforce function module: ${err}`;
-  }
+import Module =  require('module');
+import path = require('path');
+
+/**
+ * Get the exported function from the user's module
+ * @param mod - The user's module
+ * @return function
+ */
+const getUserFn = function(mod: any): Function {
   if (mod.__esModule && typeof mod.default === 'function') {
     return mod.default;
   }
   return mod;
+};
+
+/**
+ * Build an enriched function - Wraps the user function to provide enhanced
+ * arguments (initialized InvocationEvent, Context, and Logger). Will not wrap
+ * the function if a modern salesforce-sdk is not installed.
+ *
+ * @param userFn - The function exported by the user.
+ * @param userMod - The user's module that contains the function. Used to lookup
+ *   the salesforce-sdk that may have been installed by the user.
+ * @return enrichedFn - The users function, which may be wrapped.
+ */
+const enrichFn = function(userFn: Function, userModName: string): Function {
+  let sdk, errmsg;
+  try {
+    const sdkPath = path.join(userModName, 'node_modules', "@salesforce/salesforce-sdk");
+    sdk = require(sdkPath);
+  } catch (err) {
+    console.error(err);
+    errmsg = "@salesforce/salesforce-sdk not installed.";
+  }
+  if (!errmsg && typeof sdk.enrichFn !== 'function') {
+    errmsg = "@salesforce/salesforce-sdk is outdated.";
+  }
+  if (errmsg && userFn.length === 3) {
+      throw `Cannot build enriched salesforce function. ${errmsg}`;
+  }
+  if (errmsg) {
+    console.warn(`Cannot provide enriched salesforce function arguments. ${errmsg}`);
+    return userFn;
+  }
+  return sdk.enrichFn(userFn);
+};
+
+/**
+ * Get the user's function to be called for each invocation.
+ *
+ * @param packageName - The name of the user's package.
+ * @return function - The function to be called 
+ */
+export default function(packageName: string): Function {
+  if (!packageName) {
+    throw `Could not load salesforce function: package name not defined.`;
+  }
+  try {
+    const userMod = require(packageName);
+    const userFn = getUserFn(userMod);
+    return enrichFn(userFn, packageName);
+  } catch (err) {
+    throw `Could not load salesforce function: ${err}`;
+  }
 }

@@ -161,22 +161,22 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
         logger.info('Forced content-type to: application/cloudevents+json');
     }
 
-    const isSpec1 = parseInt(body.specversion.split('.')[0]) >= 1;
-    if (isSpec1) {
+    const isSpec1 = parseInt(body.specversion?.split('.')?.[0] || 0) >= 1;
+    if (isSpec1 && body.sfcontext) {
       body.sfcontext = decode64(body.sfcontext);
-    } else {
+    } else if (body.data?.context) {
       body.sfcontext = body.data.context;
       delete body.data.context;
     }
 
-    if (isSpec1) {
+    if (isSpec1 && body.sffncontext) {
       body.sffncontext = decode64(body.sffncontext);
-    } else {
+    } else if (body.data?.sfcontext) {
       body.sffncontext = body.data.sfcontext;
       delete body.data.sfcontext;
     }
 
-    if (!isSpec1) {
+    if (!isSpec1 && body.data?.payload) {
       body.data = body.data.payload;
     }
 
@@ -187,32 +187,11 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
     return Receiver.accept(headers, bodyShallowCopy);
 }
 
-const enrichFn = function(userFn): Function {
-  let sdk, errmsg;
-  try {
-    sdk = require("@salesforce/salesforce-sdk");
-  } catch {
-    errmsg = "@salesforce/salesforce-sdk not installed.";
-  }
-  if (!errmsg && !sdk?.enrichFn) {
-    errmsg = "@salesforce/salesforce-sdk is outdated.";
-  }
-  if (errmsg) {
-    if (userFn.length === 3) {
-      throw `Cannot execute enriched function. ${errmsg}`;
-    } else {
-      console.warn(`Cannot provide enriched function arguments. ${errmsg}`);
-      return userFn;
-    }
-  }
-  return sdk.enrichFn(userFn);
-};
 
-const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
-
-let enrichedFn;
+console.log("loading userfn");
+let userFn;
 try {
-  enrichedFn = enrichFn(userFn);
+  userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
 } catch(e) {
   console.error(e);
 }
@@ -261,7 +240,7 @@ export default async function systemFn(message: any): Promise<any> {
           console.log("cloud event");
           console.dir(cloudEvent.toJSON());
           console.dir(headers);
-            result = await enrichedFn(cloudEvent.toJSON(), headers);
+            result = await userFn(cloudEvent.toJSON(), headers);
         } catch (invokeErr) {
             throw new FunctionError(invokeErr);
         } finally {
