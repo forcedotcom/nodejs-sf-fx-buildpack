@@ -162,22 +162,20 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
     }
 
     const isSpec1 = parseInt(body.specversion?.split('.')?.[0] || 0) >= 1;
-    if (isSpec1 && body.sfcontext) {
-      body.sfcontext = decode64(body.sfcontext);
+    if (isSpec1 && body?.sfcontext) {
+      body['sfcontext'] = decode64(body.sfcontext);
     } else if (body.data?.context) {
-      body.sfcontext = body.data.context;
-      delete body.data.context;
+      body['sfcontext'] = body.data.context;
     }
 
-    if (isSpec1 && body.sffncontext) {
-      body.sffncontext = decode64(body.sffncontext);
-    } else if (body.data?.sfcontext) {
-      body.sffncontext = body.data.sfcontext;
-      delete body.data.sfcontext;
+    if (isSpec1 && body?.sffncontext) {
+      body['sffncontext'] = decode64(body.sffncontext);
+    } else if (body.data?.sfContext) {
+      body['sffncontext'] = body.data.sfContext;
     }
 
-    if (!isSpec1 && body.data?.payload) {
-      body.data = body.data.payload;
+    if (body?.data?.context && body?.data?.sfContext && body?.data?.payload) {
+      body.data = body.data?.payload;
     }
 
     // make a clone of the body if object - cloudevents sdk deletes keys as it parses.
@@ -188,7 +186,6 @@ function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEv
 }
 
 
-console.log("loading userfn");
 let userFn;
 try {
   userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']);
@@ -237,9 +234,6 @@ export default async function systemFn(message: any): Promise<any> {
         let result: any;
         const startExecTimeMs = new Date().getTime();
         try {
-          console.log("cloud event");
-          console.dir(cloudEvent.toJSON());
-          console.dir(headers);
             result = await userFn(cloudEvent.toJSON(), headers);
         } catch (invokeErr) {
             throw new FunctionError(invokeErr);

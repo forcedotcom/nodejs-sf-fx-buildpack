@@ -1,8 +1,5 @@
-import {Context} from '@salesforce/salesforce-sdk';
 import * as sinon from 'sinon';
 import {FN_INVOCATION} from '../../lib/constants';
-import {FunctionInvocationRequest} from '../../lib/FunctionInvocationRequest';
-import {CloudEvent, Headers as CEHeaders} from 'cloudevents';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const portHeaderPart = 6666;
@@ -61,8 +58,8 @@ export const encodeCeAttrib = (toEncode: any): string => {
     return Buffer.from(asJson).toString('base64');
 };
 
-export const generateCloudevent = (data: any, async = false, specversion = '0.3'): CloudEvent => {
-    let ce = new CloudEvent({
+export const generateCloudevent = (data: any, async = false, specversion = '0.3'): object => {
+    const ce = {
         specversion,
         id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
         datacontenttype: 'application/json',
@@ -71,54 +68,39 @@ export const generateCloudevent = (data: any, async = false, specversion = '0.3'
         source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
         time: '2019-11-14T18:13:45.627813Z',
         data: {}
-    });
+    };
     if (specversion === '0.3') {
         ce.data = data;
     }
-    else {
+    if (specversion !== "0.3") {
         // A 1.0+ spec CloudEvent will have ONLY the customer data in the data attribute.  Contexts are
         // base64-encoded-json extension attributes.
-        ce = ce.cloneWith({'sfcontext': encodeCeAttrib(data.context)});
-        ce = ce.cloneWith({'sffncontext': encodeCeAttrib(data.sfContext)});
         ce.data = data.payload;
+        ce['sfcontext'] =  encodeCeAttrib(data.context);
+        ce['sffncontext'] = encodeCeAttrib(data.sfContext);
     }
     return ce;
 };
 
-export const generateCloudEventObjs = (data: any, async = false): [CloudEvent, CEHeaders] => {
-    const cloudEvent: CloudEvent = generateCloudevent(data, async);
-    const headers = {
-        'authorization' : 'C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J',
-        'content-type' : 'application/json',
-        X_FORWARDED_HOST : hostHeader, // test case insensitive lookup
-        X_FORWARDED_PROTO: 'http'
-    };
+export const generateCloudEventObjs = (data: any, async = false): [object, Map<string, ReadonlyArray<string>>] => {
+    const cloudEvent = generateCloudevent(data, async);
+    const headers = new Map();
+    headers.set('authorization', ['C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J']);
+    headers.set('content-type', ['application/json']);
+    headers.set('X_FORWARDED_HOST', [hostHeader]); // test case insensitive lookup
+    headers.set('X_FORWARDED_PROTO', 'http');
     return [cloudEvent, headers];
 };
 
 export class FakeFunction {
+    public lastEvent: any;
+    public lastContext: any;
+    public lastLogger: any;
 
-    public initParams: any;
-    public invokeParams: any;
-    public errors: string[];
-
-    constructor(public sandbox: sinon.SinonSandbox, private doFnInvocation: boolean = false) {
-        this.errors = [];
-    }
-
-    public getName(): string {
-        return this.constructor.name;
-    }
-
-    public invoke(event:any, context: Context): Promise<any> {
-        this.invokeParams = { context, event };
-
-        if (this.doFnInvocation) {
-            const fnInvocationRequest: FunctionInvocationRequest = context[FN_INVOCATION];
-            fnInvocationRequest.response = '{}';
-            fnInvocationRequest.save();
-        }
-
+    public invoke(event: any, context: object, logger: object): Promise<any> {
+        this.lastEvent = event;
+        this.lastContext = context;
+        this.lastLogger = logger;
         return Promise.resolve('OK');
     }
 }
