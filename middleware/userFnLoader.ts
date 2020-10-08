@@ -32,7 +32,9 @@ const enrichFn = function(userFn: Function, userModName: string): Function {
     const sdkPath = path.join(userModName, 'node_modules', "@salesforce/salesforce-sdk");
     sdk = require(sdkPath);
   } catch (err) {
-    console.error(err);
+    if (process.env.DEBUG) {
+      console.error(err);
+    }
     errmsg = "@salesforce/salesforce-sdk not installed.";
   }
   if (!errmsg && typeof sdk.enrichFn !== 'function') {
@@ -52,7 +54,7 @@ const enrichFn = function(userFn: Function, userModName: string): Function {
  * Get the user's function to be called for each invocation.
  *
  * @param packageName - The name of the user's package.
- * @return function - The function to be called 
+ * @return function - The function to be called
  */
 export default function(packageName: string): Function {
   if (!packageName) {
