@@ -3,6 +3,7 @@
 
 import Module =  require('module');
 import path = require('path');
+import {EnrichedFunction} from './lib/types'
 
 /**
  * Get the exported function from the user's module
@@ -26,7 +27,7 @@ const getUserFn = function(mod: any): Function {
  *   the salesforce-sdk that may have been installed by the user.
  * @return enrichedFn - The users function, which may be wrapped.
  */
-const enrichFn = function(userFn: Function, userModName: string): Function {
+const enrichFn = function(userFn: Function, userModName: string): EnrichedFunction | Function {
   let sdk, errmsg;
   try {
     const sdkPath = path.join(userModName, 'node_modules', "@salesforce/salesforce-sdk");
@@ -47,7 +48,8 @@ const enrichFn = function(userFn: Function, userModName: string): Function {
     console.warn(`Cannot provide enriched salesforce function arguments. ${errmsg}`);
     return userFn;
   }
-  return sdk.enrichFn(userFn);
+  // we assume the sdk returned the correct signature
+  return (<EnrichedFunction>sdk.enrichFn(userFn));
 };
 
 /**
@@ -56,7 +58,7 @@ const enrichFn = function(userFn: Function, userModName: string): Function {
  * @param packageName - The name of the user's package.
  * @return function - The function to be called
  */
-export default function(packageName: string): Function {
+export default function(packageName: string): EnrichedFunction | Function {
   if (!packageName) {
     throw `Could not load salesforce function: package name not defined.`;
   }

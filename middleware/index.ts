@@ -5,11 +5,27 @@ import {Logger, LoggerFormat, LoggerLevel} from '@salesforce/core/lib/logger';
 import {CloudEvent,Headers as CEHeaders,Receiver} from 'cloudevents';
 const {Message} = require('@projectriff/message');
 import loadUserFunction from './userFnLoader';
+import {SdkCloudEvent} from './lib/types';
 
 const SUCCESS_CODE = 200;
 const FUNCTION_ERROR_CODE = 500;
 const INTERNAL_SERVER_ERROR_CODE = 503;
 export const CURRENT_FILENAME: string = __filename;
+
+const toSdkCloudEvent = (cloudevent: CloudEvent) : SdkCloudEvent => {
+    return {
+        id: cloudevent.id,
+        type: cloudevent.type,
+        source: cloudevent.source,
+        specversion: cloudevent.specversion,
+        datacontenttype: cloudevent.datacontenttype,
+        schemaurl: cloudevent.schemaurl,
+        time: new Date(cloudevent.time as string).toISOString(),
+        data: !(cloudevent.data instanceof Uint32Array) ? <any>cloudevent.data : undefined,
+        sfcontext: cloudevent.sfcontext,
+        sffncontext: cloudevent.sffncontext,
+    }
+}
 
 export class ExtraInfo {
     constructor(
@@ -139,54 +155,26 @@ function decode64(val?: string): JSON {
 /**
  * Parse input header and body into Cloudevents specification
  */
-function parseCloudEvent(logger: Logger, headers: CEHeaders, body: any): CloudEvent {
-    const ctype: string = (headers['content-type'] || '').toLowerCase();
+function parseCloudEvent(headers: CEHeaders, body: any): CloudEvent {
+    // const ctype: string = (headers['content-type'] || '').toLowerCase();
     const bodyIsObj: boolean = typeof body === 'object';
-
-    // Core API 48.0 and below send an 0.2-format CloudEvent that needs to be reformatted
-    if (bodyIsObj &&
-            'specVersion' in body &&
-            '0.2' === body['specVersion']) {
-        _mv(body, 'specVersion', 'specversion', '0.3');
-        _mv(body, 'contentType', 'datacontenttype');
-        _mv(body, 'schemaURL', 'schemaurl');
-        headers['content-type'] = 'application/cloudevents+json';
-        logger.info('Translated cloudevent 0.2 to 0.3 format');
-
-        // Initial deployment of Core API 50.0 send the wrong content-type, need to adjust
-    } else if (ctype.includes('application/json') &&
-            bodyIsObj &&
-            'specversion' in body) {
-        headers['content-type'] = 'application/cloudevents+json';
-        logger.info('Forced content-type to: application/cloudevents+json');
-    }
-
-    const isSpec1 = parseInt(body.specversion?.split('.')?.[0] || 0) >= 1;
-    if (isSpec1 && body?.sfcontext) {
-      body['sfcontext'] = decode64(body.sfcontext);
-    } else if (body.data?.context) {
-      body['sfcontext'] = body.data.context;
-    }
-
-    if (isSpec1 && body?.sffncontext) {
-      body['sffncontext'] = decode64(body.sffncontext);
-    } else if (body.data?.sfContext) {
-      body['sffncontext'] = body.data.sfContext;
-    }
-
-    if (body?.data?.context && body?.data?.sfContext && body?.data?.payload) {
-      body.data = body.data?.payload;
-    }
 
     // make a clone of the body if object - cloudevents sdk deletes keys as it parses.
     // otherwise Receiver will do a JSON parse so need to re-stringify any string body
     const bodyShallowCopy = bodyIsObj ? Object.assign({}, body) :
             JSON.stringify(body);
-    return Receiver.accept(headers, bodyShallowCopy);
+
+    const result = Receiver.accept(headers, bodyShallowCopy);
+
+    // turn the base 64 encoded string values into objects for the sdk contract
+    return result.cloneWith({
+        sfcontext: decode64(result.sfcontext as string),
+        sffncontext: decode64(result.sffncontext as string)
+    })
 }
 
 
-const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME']) as any;
+const userFn = loadUserFunction(process.env['SF_FUNCTION_PACKAGE_NAME'])
 
 export default async function systemFn(message: any): Promise<any> {
     // Remap riff headers to a standard JS object with lower-case keys
@@ -217,7 +205,7 @@ export default async function systemFn(message: any): Promise<any> {
     try {
         // Parse input according to Cloudevents 0.2, 0.3 or 1.0 specification
         try {
-            cloudEvent = parseCloudEvent(requestLogger, headers, bodyPayload);
+            cloudEvent = parseCloudEvent(headers, bodyPayload);
         } catch(parseErr) {
             // Only log toplevel input keys since values can contain credentials or PII
             requestLogger.fatal(`Failed to parse CloudEvent content-type=${headers['content-type']} body keys=${Object.keys(bodyPayload)}`);
@@ -229,7 +217,7 @@ export default async function systemFn(message: any): Promise<any> {
         let result: any;
         const startExecTimeMs = new Date().getTime();
         try {
-            result = await userFn(cloudEvent.toJSON(), headers);
+            result = await userFn(toSdkCloudEvent(cloudEvent), headers);
         } catch (invokeErr) {
             throw new FunctionError(invokeErr);
         } finally {
@@ -253,5 +241,5 @@ export default async function systemFn(message: any): Promise<any> {
 }
 
 systemFn.$argumentType = 'message';
-systemFn.$init = userFn.$init;
-systemFn.$destroy = userFn.$destroy;
+systemFn.$init = (<any>userFn).$init;
+systemFn.$destroy = (<any>userFn).$destroy;
