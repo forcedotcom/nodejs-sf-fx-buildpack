@@ -28,7 +28,6 @@ interface PdfEvent {
 }
 
 describe('Invoke Function Tests', () => {
-    const specVersions = ['1.0'];
     let sandbox: sinon.SinonSandbox;
 
     beforeEach(() => {
@@ -45,7 +44,7 @@ describe('Invoke Function Tests', () => {
       const riffMessage = Message.builder()
           .addHeader('content-type', 'application/cloudevents+json')
           .payload(cloudEvent)
-          .build()
+          .build();
       const fnResult = await require('../../index').default(riffMessage);
       expect(fnResult.payload.event.data.foo).to.equal("bar");
     });
@@ -65,7 +64,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should handle invocation - https, ', async () => {
-        const cloudEventRequest = generateCloudevent(generateData(), true);
+        const cloudEventRequest = generateCloudevent(generateData());
         const fnResult = await require('../../index').default(Message.builder()
             .addHeader('content-type', 'application/cloudevents+json')
             .payload(cloudEventRequest)
@@ -88,7 +87,7 @@ describe('Invoke Function Tests', () => {
     });
 
     it('should handle invocation - parse error (before function invocation)', async () => {
-        const cloudEventRequest = generateCloudevent(generateData(), true);
+        const cloudEventRequest = generateCloudevent(generateData());
         delete cloudEventRequest['specversion'];
         const fnResult = await require('../../index').default(Message.builder()
             .addHeader('content-type', 'application/json')
@@ -113,7 +112,7 @@ describe('Invoke Function Tests', () => {
 
     it('should handle invocation - function error', async () => {
             // Payload signals function to throw an Error
-            const cloudEventRequest = generateCloudevent(generateData(true, false, true), true);
+            const cloudEventRequest = generateCloudevent(generateData(true));
             const fnResult = await require('../../index').default(Message.builder()
                 .addHeader('content-type', 'application/cloudevents+json')
                 .payload(cloudEventRequest)

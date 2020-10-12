@@ -6,49 +6,13 @@ export const portHeaderPart = 6666;
 export const hostnameHeaderPart = 'whatever';
 export const hostHeader = `${hostnameHeaderPart}:${portHeaderPart}`;
 export const resource = `http://${hostHeader}`;
-export const generateData = (setAccessToken = true, setOnBehalfOfUserId = false, shouldThrowError = false): any => {
-    const userContext = {
-        orgDomainUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
-        orgId:'00Dxx0000006GoF',
-        salesforceBaseUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
-        userId:'005xx000001X7dl',
-        username:'chris@sffx.org'
-    };
-
-    if (setOnBehalfOfUserId) {
-        // Workaround readonly prop
-        userContext['onBehalfOfUserId'] = '005xx000001X7dy';
-    }
-
-    const sfContext = {
-        functionInvocationId: '9mdxx00000004ov',
-        functionName: 'salesforce/functions/hello',
-        requestId: '4SROyqmXwNJ3M40_wnZB1k',
-        resource
-    };
-
-    if (setAccessToken) {
-        sfContext['accessToken'] = `${userContext.orgId}!sdfssfdss`;
-    }
-
-    const context = {
-        apiVersion:'50.0',
-        payloadVersion:'224.1',
-        userContext
-    };
-
-    const data = {
-        context,
-        payload:{
-            html:null,
-            isLightning:false,
-            url:'https://sffx-dev-ed.localhost.internal.salesforce.com/apex/MyPdfPage',
-            shouldThrowError
-        },
-        sfContext
-    };
-
-    return data;
+export const generateData = (shouldThrowError = false): object => {
+  return {
+    html: null,
+    isLightning: false,
+    url: 'https://sffx-dev-ed.localhost.internal.salesforce.com/apex/MyPdfPage',
+    shouldThrowError
+  };
 };
 
 // Encode object -> json -> base64 for use in a CloudEvent 1.0-compliant attribute value, see
@@ -58,8 +22,28 @@ export const encodeCeAttrib = (toEncode: any): string => {
     return Buffer.from(asJson).toString('base64');
 };
 
-export const generateCloudevent = (data: any, async = false): object => {
-    const ce = {
+export const generateCloudevent = (data: any, sfContext?: object, sfFnContext?: object): object => {
+    const sfcontext = encodeCeAttrib(sfContext || {
+        apiVersion:'50.0',
+        payloadVersion:'224.1',
+        accessToken: '00Dxx0000006GoF!sdfssfdss',
+        userContext: {
+          orgDomainUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
+          orgId:'00Dxx0000006GoF',
+          salesforceBaseUrl:'http://sffx-dev-ed.localhost.internal.salesforce.com:6109',
+          userId:'005xx000001X7dl',
+          username:'chris@sffx.org'
+        }
+    });
+
+    const sffncontext = encodeCeAttrib(sfFnContext || {
+        functionInvocationId: '9mdxx00000004ov',
+        functionName: 'salesforce/functions/hello',
+        requestId: '4SROyqmXwNJ3M40_wnZB1k',
+        resource
+    });
+
+    return {
         specversion: '1.0',
         id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
         datacontenttype: 'application/json',
@@ -67,21 +51,14 @@ export const generateCloudevent = (data: any, async = false): object => {
         schemaurl: '',
         source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
         time: '2019-11-14T18:13:45.627813Z',
-        data: data.payload ? data.payload : data
+        data,
+        sfcontext,
+        sffncontext
     };
-    // A 1.0+ spec CloudEvent will have ONLY the customer data in the data attribute.  Contexts are
-    // base64-encoded-json extension attributes.
-    if (data.context) {
-        ce['sfcontext'] =  encodeCeAttrib(data.context);
-    }
-    if (data.sfContext) {
-        ce['sffncontext'] = encodeCeAttrib(data.sfContext);
-    }
-    return ce;
 };
 
-export const generateCloudEventObjs = (data: any, async = false): [object, Map<string, ReadonlyArray<string>>] => {
-    const cloudEvent = generateCloudevent(data, async);
+export const generateCloudEventObjs = (data: any): [object, Map<string, ReadonlyArray<string>>] => {
+    const cloudEvent = generateCloudevent(data);
     const headers = new Map();
     headers.set('authorization', ['C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J']);
     headers.set('content-type', ['application/json']);
