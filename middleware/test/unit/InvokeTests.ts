@@ -28,7 +28,7 @@ interface PdfEvent {
 }
 
 describe('Invoke Function Tests', () => {
-    const specVersions = ['0.3', '1.0'];
+    const specVersions = ['1.0'];
     let sandbox: sinon.SinonSandbox;
 
     beforeEach(() => {
@@ -42,10 +42,11 @@ describe('Invoke Function Tests', () => {
     it('should invoke the function', async () => {
       const event = {"foo": "bar"};
       const cloudEvent = generateCloudevent(event);
-      const fnResult = await require('../../index').default(Message.builder()
-          .addHeader('content-type', 'application/json')
+      const riffMessage = Message.builder()
+          .addHeader('content-type', 'application/cloudevents+json')
           .payload(cloudEvent)
-          .build());
+          .build()
+      const fnResult = await require('../../index').default(riffMessage);
       expect(fnResult.payload.event.data.foo).to.equal("bar");
     });
 
@@ -63,59 +64,58 @@ describe('Invoke Function Tests', () => {
         expect(extraInfo.stack).to.be.lengthOf(0);
     });
 
-    specVersions.forEach(function(specVersion : string) {
-        it('should handle invocation - https, specVersion=' + specVersion, async () => {
-            const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            const fnResult = await require('../../index').default(Message.builder()
-                .addHeader('content-type', 'application/json')
-                .payload(cloudEventRequest)
-                .build());
-            expect(fnResult).to.be.not.undefined;
-            expect(fnResult).to.be.not.null;
-            expect(fnResult.headers).to.be.not.null;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.equal(200);
-            expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
-            const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
-            expect(extraInfoEncoded).to.contain('%22'); // URI encoded - quote
-            expect(extraInfoEncoded).to.contain('%7B'); // URI encoded - open paran
-            const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
-            expect(extraInfo.requestId).to.not.be.empty;
-            expect(extraInfo.source).to.not.be.empty;
-            expect(extraInfo.execTimeMs).to.be.above(0);
-            expect(extraInfo.statusCode).to.be.equal(200);
-            expect(extraInfo.stack).to.have.lengthOf(0);
-            expect(fnResult.payload.success).to.equal(true);
-        });
+    it('should handle invocation - https, ', async () => {
+        const cloudEventRequest = generateCloudevent(generateData(), true);
+        const fnResult = await require('../../index').default(Message.builder()
+            .addHeader('content-type', 'application/cloudevents+json')
+            .payload(cloudEventRequest)
+            .build());
+        expect(fnResult).to.be.not.undefined;
+        expect(fnResult).to.be.not.null;
+        expect(fnResult.headers).to.be.not.null;
+        expect(fnResult.headers.getValue('x-http-status')).to.be.equal(200);
+        expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
+        const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
+        expect(extraInfoEncoded).to.contain('%22'); // URI encoded - quote
+        expect(extraInfoEncoded).to.contain('%7B'); // URI encoded - open paran
+        const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
+        expect(extraInfo.requestId).to.not.be.empty;
+        expect(extraInfo.source).to.not.be.empty;
+        expect(extraInfo.execTimeMs).to.be.above(0);
+        expect(extraInfo.statusCode).to.be.equal(200);
+        expect(extraInfo.stack).to.have.lengthOf(0);
+        expect(fnResult.payload.success).to.equal(true);
+    });
 
-        it('should handle invocation - parse error (before function invocation), specVersion=' + specVersion, async () => {
-            const cloudEventRequest = generateCloudevent(generateData(), true, specVersion);
-            delete cloudEventRequest['specversion'];
-            const fnResult = await require('../../index').default(Message.builder()
-                .addHeader('content-type', 'application/json')
-                .payload(cloudEventRequest) // not toJSON to cause parse error
-                .build());
-            expect(fnResult).to.be.not.undefined;
-            expect(fnResult).to.be.not.null;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.equal(400);
-            expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
-            const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
-            expect(extraInfoEncoded).to.contain('%20'); // URI encoded - space
-            expect(extraInfoEncoded).to.contain('%5Cn'); // URI encoded - newline
-            const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
-            expect(extraInfo.requestId).to.not.be.empty;
-            expect(extraInfo.source).to.not.be.empty;
-            expect(extraInfo.execTimeMs).to.be.equal(-1);  // function was not invoked
-            expect(extraInfo.statusCode).to.be.equal(400);
-            expect(extraInfo.isFunctionError).to.be.false;
-            expect(extraInfo.stack).to.not.be.empty;
-            expect(decodeURI(extraInfo.stack)).to.contain('Error: ');
-        });
+    it('should handle invocation - parse error (before function invocation)', async () => {
+        const cloudEventRequest = generateCloudevent(generateData(), true);
+        delete cloudEventRequest['specversion'];
+        const fnResult = await require('../../index').default(Message.builder()
+            .addHeader('content-type', 'application/json')
+            .payload(cloudEventRequest) // not toJSON to cause parse error
+            .build());
+        expect(fnResult).to.be.not.undefined;
+        expect(fnResult).to.be.not.null;
+        expect(fnResult.headers.getValue('x-http-status')).to.be.equal(400);
+        expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
+        const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
+        expect(extraInfoEncoded).to.contain('%20'); // URI encoded - space
+        expect(extraInfoEncoded).to.contain('%5Cn'); // URI encoded - newline
+        const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
+        expect(extraInfo.requestId).to.not.be.empty;
+        expect(extraInfo.source).to.not.be.empty;
+        expect(extraInfo.execTimeMs).to.be.equal(-1);  // function was not invoked
+        expect(extraInfo.statusCode).to.be.equal(400);
+        expect(extraInfo.isFunctionError).to.be.false;
+        expect(extraInfo.stack).to.not.be.empty;
+        expect(decodeURI(extraInfo.stack)).to.contain('Error: ');
+    });
 
-        it('should handle invocation - function error, specVersion=' + specVersion, async () => {
+    it('should handle invocation - function error', async () => {
             // Payload signals function to throw an Error
-            const cloudEventRequest = generateCloudevent(generateData(true, false, true), true, specVersion);
+            const cloudEventRequest = generateCloudevent(generateData(true, false, true), true);
             const fnResult = await require('../../index').default(Message.builder()
-                .addHeader('content-type', 'application/json')
+                .addHeader('content-type', 'application/cloudevents+json')
                 .payload(cloudEventRequest)
                 .build());
             expect(fnResult).to.be.not.undefined;
@@ -134,5 +134,4 @@ describe('Invoke Function Tests', () => {
             expect(extraInfo.stack).to.not.be.empty;
             expect(extraInfo.stack).to.contain('FakeError');
         });
-    });
 });

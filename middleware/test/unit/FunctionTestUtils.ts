@@ -58,25 +58,23 @@ export const encodeCeAttrib = (toEncode: any): string => {
     return Buffer.from(asJson).toString('base64');
 };
 
-export const generateCloudevent = (data: any, async = false, specversion = '0.3'): object => {
+export const generateCloudevent = (data: any, async = false): object => {
     const ce = {
-        specversion,
+        specversion: '1.0',
         id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
         datacontenttype: 'application/json',
         type: 'com.salesforce.function.invoke',
         schemaurl: '',
         source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
         time: '2019-11-14T18:13:45.627813Z',
-        data: {}
+        data: data.payload ? data.payload : data
     };
-    if (specversion === '0.3') {
-        ce.data = data;
-    }
-    if (specversion !== "0.3") {
-        // A 1.0+ spec CloudEvent will have ONLY the customer data in the data attribute.  Contexts are
-        // base64-encoded-json extension attributes.
-        ce.data = data.payload;
+    // A 1.0+ spec CloudEvent will have ONLY the customer data in the data attribute.  Contexts are
+    // base64-encoded-json extension attributes.
+    if (data.context) {
         ce['sfcontext'] =  encodeCeAttrib(data.context);
+    }
+    if (data.sfContext) {
         ce['sffncontext'] = encodeCeAttrib(data.sfContext);
     }
     return ce;
