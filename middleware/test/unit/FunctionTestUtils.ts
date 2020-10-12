@@ -56,26 +56,3 @@ export const generateCloudevent = (data: any, sfContext?: object, sfFnContext?: 
         sffncontext
     };
 };
-
-export const generateCloudEventObjs = (data: any): [object, Map<string, ReadonlyArray<string>>] => {
-    const cloudEvent = generateCloudevent(data);
-    const headers = new Map();
-    headers.set('authorization', ['C2C eyJ2ZXIiOiIxLjAiLCJraWQiOiJDT1J']);
-    headers.set('content-type', ['application/json']);
-    headers.set('X_FORWARDED_HOST', [hostHeader]); // test case insensitive lookup
-    headers.set('X_FORWARDED_PROTO', 'http');
-    return [cloudEvent, headers];
-};
-
-export class FakeFunction {
-    public lastEvent: any;
-    public lastContext: any;
-    public lastLogger: any;
-
-    public invoke(event: any, context: object, logger: object): Promise<any> {
-        this.lastEvent = event;
-        this.lastContext = context;
-        this.lastLogger = logger;
-        return Promise.resolve('OK');
-    }
-}
