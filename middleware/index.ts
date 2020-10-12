@@ -156,7 +156,6 @@ function decode64(val?: string): JSON {
  * Parse input header and body into Cloudevents specification
  */
 function parseCloudEvent(headers: CEHeaders, body: any): CloudEvent {
-    // const ctype: string = (headers['content-type'] || '').toLowerCase();
     const bodyIsObj: boolean = typeof body === 'object';
 
     // make a clone of the body if object - cloudevents sdk deletes keys as it parses.
