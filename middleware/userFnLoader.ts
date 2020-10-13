@@ -42,7 +42,7 @@ const enrichFn = function(userFn: Function, userModName: string): EnrichedFuncti
     errmsg = "@salesforce/salesforce-sdk is outdated.";
   }
   if (errmsg && userFn.length === 3) {
-      throw `Cannot build enriched salesforce function. ${errmsg}`;
+    throw `Cannot build enriched salesforce function. ${errmsg}`;
   }
   if (errmsg) {
     console.warn(`Cannot provide enriched salesforce function arguments. ${errmsg}`);
@@ -59,14 +59,16 @@ const enrichFn = function(userFn: Function, userModName: string): EnrichedFuncti
  * @return function - The function to be called
  */
 export default function(packageName: string): EnrichedFunction | Function {
-  if (!packageName) {
-    throw `Could not load salesforce function: package name not defined.`;
-  }
   try {
+    if (!packageName) {
+      throw 'package name not defined.';
+    }
+
     const userMod = require(packageName);
     const userFn = getUserFn(userMod);
     return enrichFn(userFn, packageName);
   } catch (err) {
-    throw `Could not load salesforce function: ${err}`;
+    console.error(`Could not load salesforce function: ${err}`);
+    process.exit(1);
   }
 }
