@@ -1,5 +1,4 @@
-import * as sinon from 'sinon';
-import {FN_INVOCATION} from '../../lib/constants';
+import {Message} from '@projectriff/message';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export const portHeaderPart = 6666;
@@ -22,8 +21,8 @@ export const encodeCeAttrib = (toEncode: any): string => {
     return Buffer.from(asJson).toString('base64');
 };
 
-export const generateCloudevent = (data: any, sfContext?: object, sfFnContext?: object): object => {
-    const sfcontext = encodeCeAttrib(sfContext || {
+export const generateRequestMessage = (data?: object, omitSpecVersion = false): object => {
+    const sfcontext = encodeCeAttrib({
         apiVersion:'50.0',
         payloadVersion:'224.1',
         accessToken: '00Dxx0000006GoF!sdfssfdss',
@@ -36,23 +35,31 @@ export const generateCloudevent = (data: any, sfContext?: object, sfFnContext?: 
         }
     });
 
-    const sffncontext = encodeCeAttrib(sfFnContext || {
+    const sffncontext = encodeCeAttrib({
         functionInvocationId: '9mdxx00000004ov',
         functionName: 'salesforce/functions/hello',
         requestId: '4SROyqmXwNJ3M40_wnZB1k',
         resource
     });
 
-    return {
-        specversion: '1.0',
-        id: '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k',
-        datacontenttype: 'application/json',
-        type: 'com.salesforce.function.invoke',
-        schemaurl: '',
-        source: 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov',
-        time: '2019-11-14T18:13:45.627813Z',
-        data,
-        sfcontext,
-        sffncontext
-    };
+    let result = Message.builder()
+                  .addHeader('content-type', 'application/json')
+                  .addHeader('ce-id', '00Dxx0000006GY7-4SROyqmXwNJ3M40_wnZB1k')
+                  .addHeader('ce-datacontenttype', 'application/json')
+                  .addHeader('ce-type', 'com.salesforce.function.invoke')
+                  .addHeader('ce-schemaurl', '')
+                  .addHeader('ce-source', 'urn:event:from:salesforce/xx/224.0/00Dxx0000006GY7/InvokeFunctionController/9mdxx00000004ov')
+                  .addHeader('ce-time', '2019-11-14T18:13:45.627813Z')
+                  .addHeader('ce-sfcontext', sfcontext)
+                  .addHeader('ce-sffncontext', sffncontext)
+
+    if (!omitSpecVersion) {
+      result = result.addHeader('ce-specversion', '1.0')
+    }
+
+    if (data) {
+      result = result.payload(data)
+    }
+
+    return result.build()
 };

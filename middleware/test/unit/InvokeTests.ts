@@ -4,51 +4,16 @@ import {expect, use} from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
 import 'mocha';
 import * as sinon from 'sinon';
-import {Message} from '@projectriff/message';
 
 use(chaiAsPromised);
 
 import {
-    generateCloudevent,
+    generateRequestMessage,
     generateData,
 } from './FunctionTestUtils';
 import {CURRENT_FILENAME, ExtraInfo} from '../../index';
 
-interface PdfEvent {
-    html?: string,
-    url?:  string,
-    isLightning?: boolean,
-    pdf?: {
-        printBackground?: boolean
-        displayHeaderFooter?: boolean
-    },
-    browser?: {
-        headless?: boolean, /* allow for testing purposes */
-    }
-}
-
-describe('Invoke Function Tests', () => {
-    let sandbox: sinon.SinonSandbox;
-
-    beforeEach(() => {
-      sandbox = sinon.createSandbox();
-    });
-
-    afterEach(() => {
-        sandbox.restore();
-    });
-
-    it('should invoke the function', async () => {
-      const event = {"foo": "bar"};
-      const cloudEvent = generateCloudevent(event);
-      const riffMessage = Message.builder()
-          .addHeader('content-type', 'application/cloudevents+json')
-          .payload(cloudEvent)
-          .build();
-      const fnResult = await require('../../index').default(riffMessage);
-      expect(fnResult.payload.event.data.foo).to.equal("bar");
-    });
-
+describe('ExtraInfo', () => {
     it('should parse stack', async () => {
         const extraInfo = new ExtraInfo('requestId', 'source', 1, 220);
         const msg = 'Ooooops';
@@ -62,13 +27,27 @@ describe('Invoke Function Tests', () => {
         extraInfo.setStack(undefined);
         expect(extraInfo.stack).to.be.lengthOf(0);
     });
+})
 
-    it('should handle invocation - https, ', async () => {
-        const cloudEventRequest = generateCloudevent(generateData());
-        const fnResult = await require('../../index').default(Message.builder()
-            .addHeader('content-type', 'application/cloudevents+json')
-            .payload(cloudEventRequest)
-            .build());
+describe('Invoke Function Tests', () => {
+    let sandbox: sinon.SinonSandbox;
+
+    beforeEach(() => {
+      sandbox = sinon.createSandbox();
+    });
+
+    afterEach(() => {
+        sandbox.restore();
+    });
+
+    it('should invoke the function with the expected payload shape', async () => {
+      const event = {"foo": "bar"};
+      const fnResult = await require('../../index').default(generateRequestMessage(event));
+      expect(fnResult.payload.event.data.foo).to.equal("bar");
+    });
+
+    it('should respond successfully', async () => {
+        const fnResult = await require('../../index').default(generateRequestMessage(generateData()));
         expect(fnResult).to.be.not.undefined;
         expect(fnResult).to.be.not.null;
         expect(fnResult.headers).to.be.not.null;
@@ -86,13 +65,8 @@ describe('Invoke Function Tests', () => {
         expect(fnResult.payload.success).to.equal(true);
     });
 
-    it('should handle invocation - parse error (before function invocation)', async () => {
-        const cloudEventRequest = generateCloudevent(generateData());
-        delete cloudEventRequest['specversion'];
-        const fnResult = await require('../../index').default(Message.builder()
-            .addHeader('content-type', 'application/json')
-            .payload(cloudEventRequest) // not toJSON to cause parse error
-            .build());
+    it('should respond with bad request with invalid cloudevent', async () => {
+        const fnResult = await require('../../index').default(generateRequestMessage(generateData(), true));
         expect(fnResult).to.be.not.undefined;
         expect(fnResult).to.be.not.null;
         expect(fnResult.headers.getValue('x-http-status')).to.be.equal(400);
@@ -110,27 +84,22 @@ describe('Invoke Function Tests', () => {
         expect(decodeURI(extraInfo.stack)).to.contain('Error: ');
     });
 
-    it('should handle invocation - function error', async () => {
-            // Payload signals function to throw an Error
-            const cloudEventRequest = generateCloudevent(generateData(true));
-            const fnResult = await require('../../index').default(Message.builder()
-                .addHeader('content-type', 'application/cloudevents+json')
-                .payload(cloudEventRequest)
-                .build());
-            expect(fnResult).to.be.not.undefined;
-            expect(fnResult).to.be.not.null;
-            expect(fnResult.headers.getValue('x-http-status')).to.be.equal(500);
-            expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
-            const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
-            expect(extraInfoEncoded).to.contain('%20'); // URI encoded - space
-            expect(extraInfoEncoded).to.contain('%5Cn'); // URI encoded - newline
-            const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
-            expect(extraInfo.requestId).to.not.be.empty;
-            expect(extraInfo.source).to.not.be.empty;
-            expect(extraInfo.execTimeMs).to.be.above(0);
-            expect(extraInfo.statusCode).to.be.equal(500);
-            expect(extraInfo.isFunctionError).to.be.true;
-            expect(extraInfo.stack).to.not.be.empty;
-            expect(extraInfo.stack).to.contain('FakeError');
-        });
+    it('should respond with server error with function invocation error', async () => {
+        const fnResult = await require('../../index').default(generateRequestMessage(generateData(true)));
+        expect(fnResult).to.be.not.undefined;
+        expect(fnResult).to.be.not.null;
+        expect(fnResult.headers.getValue('x-http-status')).to.be.equal(500);
+        expect(fnResult.headers.getValue('x-extra-info')).to.be.not.null;
+        const extraInfoEncoded = fnResult.headers.getValue('x-extra-info');
+        expect(extraInfoEncoded).to.contain('%20'); // URI encoded - space
+        expect(extraInfoEncoded).to.contain('%5Cn'); // URI encoded - newline
+        const extraInfo = JSON.parse(decodeURI(extraInfoEncoded));
+        expect(extraInfo.requestId).to.not.be.empty;
+        expect(extraInfo.source).to.not.be.empty;
+        expect(extraInfo.execTimeMs).to.be.above(0);
+        expect(extraInfo.statusCode).to.be.equal(500);
+        expect(extraInfo.isFunctionError).to.be.true;
+        expect(extraInfo.stack).to.not.be.empty;
+        expect(extraInfo.stack).to.contain('FakeError');
+    });
 });
