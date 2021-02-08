@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -eo pipefail
+echo "---> Salesforce Node.js Function Buildpack"
 
 BP_DIR=$(cd $(dirname $0)/..; pwd)
-echo "BP_DIR: " $BP_DIR
 LAYERS_DIR="$1"
-echo "LAYERS_DIR: " $LAYERS_DIR
 MW_LAYER="$LAYERS_DIR/middleware"
-echo "MW_LAYER: " $MW_LAYER
 BUILD_DIR=$(pwd)
 
 # Get the package name of the user function, to allow it to be required by name
@@ -33,8 +31,11 @@ cp -a "$BP_DIR/middleware/." $MW_LAYER
 local_lock_checksum=$(sha256sum "${MW_LAYER}/package-lock.json" | cut -d " " -f 1)
 cached_lock_checksum=$(yj -t < "${NODE_MODULES_DIR}.toml" | jq -r ".metadata.package_lock_checksum")
 
-if [[ "$local_lock_checksum" == "$cached_lock_checksum" ]] ; then
-    echo "using previous node_modules and dist artifacts from cache"
+local_stack=${CNB_STACK_ID}
+cached_stack=$(yj -t < "${NODE_MODULES_DIR}.toml" | jq -r ".metadata.stack")
+
+if [ "$local_lock_checksum" == "$cached_lock_checksum" ] && [ "$local_stack" == "$cached_stack" ] ; then
+    echo "---> Reusing previous node_modules and dist artifacts from cache"
     cp -r "${NODE_MODULES_DIR}/." "${MW_LAYER}/node_modules"
 else
 
@@ -43,7 +44,9 @@ else
     {
       echo "build = false"
       echo "launch = false"
-      echo -e "[metadata]\npackage_lock_checksum = \"$local_lock_checksum\""
+      echo -e "[metadata]"
+      echo -e "package_lock_checksum = \"$local_lock_checksum\""
+      echo -e "stack = \"$local_stack\""
     } >> "${NODE_MODULES_DIR}.toml"
 
     pushd $MW_LAYER
@@ -57,7 +60,7 @@ if [[ -d "$MW_LAYER/node_modules/$SF_FUNCTION_PACKAGE_NAME" ]]; then
   echo "Salesforce function package name($SF_FUNCTION_PACKAGE_NAME) conflicts with existing module. Change the 'name' in package.json."
   exit 1
 fi
-echo "Installing $SF_FUNCTION_PACKAGE_NAME"
+echo "---> Installing $SF_FUNCTION_PACKAGE_NAME"
 echo -n "$SF_FUNCTION_PACKAGE_NAME" > "$MW_LAYER/env/SF_FUNCTION_PACKAGE_NAME.override"
 ln -s "$BUILD_DIR" "$MW_LAYER/node_modules/$SF_FUNCTION_PACKAGE_NAME"
 
