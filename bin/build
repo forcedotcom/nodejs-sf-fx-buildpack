@@ -44,7 +44,8 @@ else
     {
       echo "build = false"
       echo "launch = false"
-      echo -e "[metadata]\npackage_lock_checksum = \"$local_lock_checksum\""
+      echo -e "[metadata]"
+      echo -e "package_lock_checksum = \"$local_lock_checksum\""
       echo -e "stack = \"$local_stack\""
     } >> "${NODE_MODULES_DIR}.toml"
 
