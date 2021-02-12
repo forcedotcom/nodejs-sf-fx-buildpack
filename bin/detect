@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 set -eo pipefail
 
-if [ -f package.json ] && [ -f function.toml ]; then
-  echo "detected Salesforce Function"
+if [ -f package.json ]; then
+  if [ -f function.toml ]; then
+    functiontoml=1
 
+    echo -e "\n***********************************************"
+    echo -e "DEPRECATION WARNING:\n\nfunction.toml is being deprecated in favor of project.toml. Rename function.toml to project.toml."
+    echo -e "***********************************************\n"
+  fi
+
+  if [ $functiontoml -eq 1 ] || [ -f project.toml ]; then
+    echo "detected Salesforce Function"
 cat << EOF > "$2"
 [[requires]]
 name = "riff-node"
@@ -11,6 +19,8 @@ name = "riff-node"
 [requires.metadata]
 artifact = "../../../layers/salesforce_nodejs-fn/middleware/dist"
 EOF
+  fi
+
   exit 0
 fi
 
